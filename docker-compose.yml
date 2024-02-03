@@ -1,0 +1,15 @@
+version: "3"
+
+services:
+  panda:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - PANDA_ENV=dev
+      - PANDA_DATA_DIR_PATH=/panda/data
+      - PANDA_DATABSE_NAME=panda.db
+    volumes:
+      - db_data:/panda/data
+volumes:
+  db_data: {}

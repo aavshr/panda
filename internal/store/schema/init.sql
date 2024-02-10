@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS threads (
     id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
+    t_name TEXT NOT NULL,
     external_message_store BOOL DEFAULT 'f',
     created_at TIMESTAMPTZ NOT NULL,
     updated_at TIMESTAMPTZ NOT NULL
@@ -8,16 +8,19 @@ CREATE TABLE IF NOT EXISTS threads (
 
 CREATE TABLE IF NOT EXISTS messages (
     id TEXT PRIMARY KEY,
-    role TEXT NOT NULL,
+    m_role TEXT NOT NULL,
     content TEXT NOT NULL,
     created_at TIMESTAMPTZ NOT NULL,
     thread_id TEXT REFERENCES threads(id) ON DELETE CASCADE
 );
 
-CREATE VIRTUAL TABLE searchable_content USING fts4(
-    thread_name TEXT NOT NULL,
-    message_content TEXT NOT NULL,
-    thread_id TEXT REFERENCES threads(id) ON DELETE CASCADE,
-    message_id TEXT REFERENCES messages(id) ON DELETE CASCADE,
-    UNIQUE(thread_id, message_id)
+CREATE VIRTUAL TABLE virtual_thread_names USING fts5(
+    thread_name,
+    thread_id UNINDEXED
+);
+
+CREATE VIRTUAL TABLE virtual_message_content USING fts5(
+    message_content,
+    message_id UNINDEXED,
+    thread_id UNINDEXED
 );

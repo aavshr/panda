@@ -1,7 +1,10 @@
 FROM golang:1.20
 WORKDIR /app
 COPY . .
-RUN go mod download
 ## sqlite3 needs gcc
-RUN CGO_ENABLED=1 go build -o panda
+ENV CGO_ENABLED=1
+
+RUN go mod download
+## fts5 is needed for full text search
+RUN go build -tags "fts5" -o panda
 CMD ["./panda"]

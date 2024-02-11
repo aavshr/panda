@@ -2,16 +2,16 @@ package main
 
 import (
 	_ "embed"
-	"github.com/aavshr/panda/internal/store"
+	"github.com/aavshr/panda/internal/db"
 	"log"
 	"os"
 	"strings"
 )
 
-//go:embed internal/store/schema/init.sql
+//go:embed internal/db/schema/init.sql
 var dbSchemaInit string
 
-//go:embed internal/store/schema/migrations.sql
+//go:embed internal/db/schema/migrations.sql
 var dbSchemaMigrations string
 
 const (
@@ -35,11 +35,11 @@ func main() {
 		}
 	}
 
-	_, err := store.New(store.Config{
+	_, err := db.New(db.Config{
 		DataDirPath: dataDirPath,
 		DatabaseName: databaseName,
 	}, &dbSchemaInit, &dbSchemaMigrations)
 	if err != nil {
-		log.Fatal("failed to initialize store: ", err)
+		log.Fatal("failed to initialize db: ", err)
 	}
 }

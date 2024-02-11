@@ -1,0 +1,33 @@
+name: Pull Request
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint-build-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.20"
+
+      - name: Lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          args: "--timeout=3m"
+
+      - name: Build
+        run: CGO_ENABLED=1 go build -tags "fts5"
+
+      - name: Test
+        run: CGO_ENABLED=1 go test -v -tags "fts5" ./...
+        env:
+          PANDA_ENV: dev
+          PANDA_DATA_DIR_PATH: /panda/data
+          PANDA_DATABSE_NAME: panda.db

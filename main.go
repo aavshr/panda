@@ -42,5 +42,4 @@ func main() {
 	if err != nil {
 		log.Fatal("failed to initialize store: ", err)
 	}
-	return
 }

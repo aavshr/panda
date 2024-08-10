@@ -24,27 +24,31 @@ func (t *ThreadListItem) FilterValue() string {
 	return t.thread.Name
 }
 
-func (t *ThreadListItem) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	// TODO: implement
-	return
+type ThreadListItemDelegate struct {
+	paddingRight int
+	inner        list.DefaultDelegate
 }
 
-func (t *ThreadListItem) Height() int {
-	// TODO: implement
-	return 1
+func (d *ThreadListItemDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
+	d.inner.Render(w, m, index, item)
 }
 
-func (t *ThreadListItem) Spacing() int{
+func (d *ThreadListItemDelegate) Height() int {
+	// TODO: implement
+	return d.inner.Height()
+}
+
+func (d *ThreadListItemDelegate) Spacing() int {
 	//TODO: implement
-	return 1
+	return d.inner.Spacing()
 }
 
-func (t *ThreadListItem) Update(msg tea.Msg, m *list.Model) tea.Cmd {
+func (t *ThreadListItemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 	// TODO: implement
 	return nil
 }
 
-func NewThreadListItems(threads []*db.Thread) []list.Item{
+func NewThreadListItems(threads []*db.Thread) []list.Item {
 	items := make([]list.Item, len(threads))
 	for i, t := range threads {
 		items[i] = &ThreadListItem{
@@ -53,3 +57,11 @@ func NewThreadListItems(threads []*db.Thread) []list.Item{
 	}
 	return items
 }
+
+func NewThreadListItemDelegate(paddingRight int) list.ItemDelegate {
+	return &ThreadListItemDelegate{
+		paddingRight: paddingRight,
+		inner:        list.NewDefaultDelegate(),
+	}
+}
+

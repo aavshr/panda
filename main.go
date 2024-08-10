@@ -3,9 +3,14 @@ package main
 import (
 	_ "embed"
 	"github.com/aavshr/panda/internal/db"
+	"github.com/aavshr/panda/internal/ui"
+	"github.com/aavshr/panda/internal/ui/store"
+	tea "github.com/charmbracelet/bubbletea"
 	"log"
 	"os"
-	"strings"
+	//"log"
+	//"os"
+	//"strings"
 )
 
 //go:embed internal/db/schema/init.sql
@@ -15,31 +20,61 @@ var dbSchemaInit string
 var dbSchemaMigrations string
 
 const (
-	DefaultDataDirPath = "/.local/share/panda/data"
+	DefaultDataDirPath  = "/.local/share/panda/data"
 	DefaultDatabaseName = "panda.db"
 )
 
 func main() {
-	isDev := strings.ToLower(os.Getenv("PANDA_ENV")) == "dev"
+	/*
+		isDev := strings.ToLower(os.Getenv("PANDA_ENV")) == "dev"
+		dataDirPath := DefaultDataDirPath
+		databaseName := DefaultDatabaseName
+		if isDev {
+			devDataDirPath := os.Getenv("PANDA_DATA_DIR_PATH")
+			devDatabaseName := os.Getenv("PANDA_DATABASE_NAME")
+			if devDataDirPath != "" {
+				dataDirPath = devDataDirPath
+			}
+			if devDatabaseName != "" {
+				databaseName = devDatabaseName
+			}
+		}
 
-	dataDirPath := DefaultDataDirPath
-	databaseName := DefaultDatabaseName
-	if isDev {
-		devDataDirPath := os.Getenv("PANDA_DATA_DIR_PATH")
-		devDatabaseName := os.Getenv("PANDA_DATABASE_NAME")
-		if devDataDirPath != "" {
-			dataDirPath = devDataDirPath
+		_, err := db.New(db.Config{
+			DataDirPath: dataDirPath,
+			DatabaseName: databaseName,
+		}, &dbSchemaInit, &dbSchemaMigrations)
+		if err != nil {
+			log.Fatal("failed to initialize db: ", err)
 		}
-		if devDatabaseName != "" {
-			databaseName = devDatabaseName
-		}
+	*/
+
+	testThreads := []*db.Thread{
+		{
+			ID:        "1",
+			Name:      "Thread 1",
+			CreatedAt: "2024-01-01",
+			UpdatedAt: "2024-01-02",
+		},
+		{
+			ID:        "2",
+			Name:      "Thread 2",
+			CreatedAt: "2024-01-03",
+			UpdatedAt: "2024-01-02",
+		},
 	}
+	mockStore := store.NewMock(testThreads)
 
-	_, err := db.New(db.Config{
-		DataDirPath: dataDirPath,
-		DatabaseName: databaseName,
-	}, &dbSchemaInit, &dbSchemaMigrations)
+	m, err := ui.New(&ui.Config{
+		InitThreadsLimit: 10,
+		MaxThreadsLimit:  100,
+	}, mockStore)
 	if err != nil {
-		log.Fatal("failed to initialize db: ", err)
+		log.Fatal("ui.New: ", err)
+	}
+	p := tea.NewProgram(m)
+	if _, err := p.Run(); err != nil {
+		log.Println("error: ", err)
+		os.Exit(1)
 	}
 }

@@ -10,7 +10,6 @@ import (
 
 	//"github.com/aavshr/panda/internal/ui/styles"
 	"github.com/charmbracelet/bubbles/list"
-	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -21,9 +20,9 @@ const (
 		|          |            |
 		|          |            |
 		|----------|------------|
-		| settings |  prompt    |
+		|  chat input           |
 	*/
-	widthSeparationRatio  = 0.3
+	widthSeparationRatio  = 0.2
 	heightSeparationRatio = 0.1
 )
 
@@ -38,11 +37,10 @@ type Config struct {
 	MaxThreadsLimit  int
 	Width            int
 	Height           int
-	sidebarWidth     int
+	historyWidth     int
 	historyHeight    int
 	messagesWidth    int
 	messagesHeight   int
-	settingsHeight   int
 	chatInputWidth   int
 	chatInputHeight  int
 }
@@ -52,7 +50,7 @@ type Model struct {
 
 	messagesModel  list.Model
 	historyModel   list.Model
-	chatInputModel textarea.Model
+	chatInputModel components.ChatInputModel
 
 	threads       []*db.Thread
 	threadsOffset int
@@ -67,13 +65,12 @@ func New(conf *Config, store store.Store) (*Model, error) {
 	if conf.Width == 0 || conf.Height == 0 {
 		return nil, fmt.Errorf("invalid config: width and height must be greater than 0")
 	}
-	conf.sidebarWidth = int(float64(conf.Width) * widthSeparationRatio)
+	conf.historyWidth = int(float64(conf.Width) * widthSeparationRatio)
 	conf.historyHeight = conf.Height - int(float64(conf.Height)*heightSeparationRatio)
-	conf.messagesWidth = conf.Width - conf.sidebarWidth
-	conf.messagesHeight = conf.Height - conf.chatInputHeight
-	conf.settingsHeight = conf.Height - conf.historyHeight
-	conf.chatInputWidth = conf.messagesWidth
-	conf.chatInputHeight = conf.settingsHeight
+	conf.messagesWidth = conf.Width - conf.historyWidth
+	conf.messagesHeight = conf.historyHeight
+	conf.chatInputWidth = conf.Width + 2 // to account for border and padding
+	conf.chatInputHeight = conf.Height - conf.historyHeight
 
 	m := &Model{
 		conf:  conf,
@@ -84,44 +81,58 @@ func New(conf *Config, store store.Store) (*Model, error) {
 		return m, fmt.Errorf("store.ListLatestThreadsPaginated %w", err)
 	}
 	m.threads = threads
-	m.historyModel = components.NewHistoryModel(m.threads, conf.sidebarWidth, conf.historyHeight)
+	m.historyModel = components.NewHistoryModel(m.threads, conf.historyWidth, conf.historyHeight)
 	m.messagesModel = components.NewMessagesModel(m.messages, conf.messagesWidth, conf.messagesHeight)
-	m.initChatInputModel()
+	m.chatInputModel = components.NewChatInputModel(conf.chatInputWidth, conf.chatInputHeight)
 	return m, nil
 }
 
-func (m *Model) initChatInputModel() {
-	chatInputModel := textarea.New()
-	chatInputModel.Placeholder = "Type..."
-	chatInputModel.SetWidth(m.conf.chatInputWidth)
-	chatInputModel.SetHeight(m.conf.chatInputHeight)
-	chatInputModel.Focus()
-	//chatInputModel.Prompt = "> "
-	chatInputModel.FocusedStyle.CursorLine = lipgloss.NewStyle()
-	chatInputModel.ShowLineNumbers = false
-	m.chatInputModel = chatInputModel
-}
-
 func (m *Model) Init() tea.Cmd {
-	return textarea.Blink
+	return tea.Batch(
+		m.chatInputModel.Init(),
+		m.chatInputModel.Focus(),
+	)
 }
 
 func (m *Model) View() string {
 	mainContainer := styles.MainContainerStyle()
 
+	container := styles.ContainerStyle()
+	historyContainer := container.Copy().Width(m.conf.historyWidth).Height(m.conf.historyHeight)
+	messagesContainer := container.Copy().Width(m.conf.messagesWidth).Height(m.conf.messagesHeight)
+	chatInputContainer := container.Copy().Width(m.conf.chatInputWidth).Height(m.conf.chatInputHeight)
+
 	return mainContainer.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.JoinHorizontal(
 				lipgloss.Top,
-				m.historyModel.View(),
-				m.messagesModel.View(),
+				historyContainer.Render(m.historyModel.View()),
+				messagesContainer.Render(m.messagesModel.View()),
 			),
-			m.chatInputModel.View(),
+			lipgloss.JoinVertical(
+				lipgloss.Left,
+				chatInputContainer.Render(m.chatInputModel.View()),
+			),
 		),
 	)
 }
 
+// TODO: how does the Update loop work?
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	// TODO: implement
-	return m, nil
+	var historyCmd, messagesCmd, chatInputCmd tea.Cmd
+	m.chatInputModel, chatInputCmd = m.chatInputModel.Update(msg)
+
+	// TODO: store in db
+	if msg, ok := msg.(components.ChatInputEnterMsg); ok {
+		// TODO: not use SetItems directly?
+		// is there a better way to do this? bubble tea recommends not to use Cmd like this
+		if msg.Value != "" {
+			// TODO: send API request
+			m.messages = append(m.messages, &db.Message{Content: msg.Value})
+			m.messagesModel.SetItems(components.NewMessageListItems(m.messages))
+		}
+	}
+	m.messagesModel, messagesCmd = m.messagesModel.Update(msg)
+	m.historyModel, historyCmd = m.historyModel.Update(msg)
+	return m, tea.Batch(historyCmd, messagesCmd, chatInputCmd)
 }

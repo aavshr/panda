@@ -35,7 +35,7 @@ func TestModel_View(t *testing.T) {
 	m, _ := New(&Config{
 		InitThreadsLimit: 10,
 		MaxThreadsLimit:  100,
-		Width:            width - 5,
+		Width:            width - 10,
 		Height:           height - 10,
 	}, mockStore)
 	_ = m.Init()

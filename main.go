@@ -6,6 +6,7 @@ import (
 	"github.com/aavshr/panda/internal/ui"
 	"github.com/aavshr/panda/internal/ui/store"
 	tea "github.com/charmbracelet/bubbletea"
+	"golang.org/x/term"
 	"log"
 	"os"
 	//"log"
@@ -65,9 +66,16 @@ func main() {
 	}
 	mockStore := store.NewMock(testThreads)
 
+	width, height, err := term.GetSize(int(os.Stdout.Fd()))
+	if err != nil {
+		log.Fatalf("failed to get terminal size: %v", err)
+	}
+
 	m, err := ui.New(&ui.Config{
 		InitThreadsLimit: 10,
 		MaxThreadsLimit:  100,
+		Width:            width - 10,
+		Height:           height - 10,
 	}, mockStore)
 	if err != nil {
 		log.Fatal("ui.New: ", err)

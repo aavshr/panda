@@ -14,8 +14,13 @@ const (
 
 func MainContainerStyle() lipgloss.Style {
 	s := lipgloss.NewStyle().
-		Padding(1, 2).
 		Border(lipgloss.ThickBorder(), true)
+	return s
+}
+
+func ContainerStyle() lipgloss.Style {
+	s := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder(), true)
 	return s
 }
 

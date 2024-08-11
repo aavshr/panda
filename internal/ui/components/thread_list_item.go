@@ -25,8 +25,7 @@ func (t *ThreadListItem) FilterValue() string {
 }
 
 type ThreadListItemDelegate struct {
-	paddingRight int
-	inner        list.DefaultDelegate
+	inner list.DefaultDelegate
 }
 
 func (d *ThreadListItemDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
@@ -58,10 +57,9 @@ func NewThreadListItems(threads []*db.Thread) []list.Item {
 	return items
 }
 
-func NewThreadListItemDelegate(paddingRight int) list.ItemDelegate {
+func NewThreadListItemDelegate() list.ItemDelegate {
 	return &ThreadListItemDelegate{
-		paddingRight: paddingRight,
-		inner:        list.NewDefaultDelegate(),
+		inner: list.NewDefaultDelegate(),
 	}
 }
 

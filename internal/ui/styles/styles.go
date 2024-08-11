@@ -7,6 +7,7 @@ import (
 const (
 	TitleColor             = "#eb5e55"
 	TitleSecondaryColor    = "#f9c784"
+	ActiveContainerColor   = "#f9c784"
 	ListItemColor          = "#c6d8d3"
 	ListItemSecondaryColor = "#fdf0d5"
 	DescriptionColor       = "#d81e5b"
@@ -22,6 +23,10 @@ func ContainerStyle() lipgloss.Style {
 	s := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder(), true)
 	return s
+}
+
+func SetActiveBorder(s *lipgloss.Style) {
+	s.BorderForeground(lipgloss.Color(ActiveContainerColor))
 }
 
 func SidebarContainerStyle(width int) lipgloss.Style {

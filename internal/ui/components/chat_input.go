@@ -27,16 +27,16 @@ func NewChatInputModel(width, height int) ChatInputModel {
 	}
 }
 
-func (c *ChatInputModel) Init() tea.Cmd {
-	return textarea.Blink
-}
-
 func (c *ChatInputModel) View() string {
 	return c.inner.View()
 }
 
 func (c *ChatInputModel) Focus() tea.Cmd {
 	return c.inner.Focus()
+}
+
+func (c *ChatInputModel) Blur() {
+	c.inner.Blur()
 }
 
 func (c *ChatInputModel) Value() string {
@@ -46,6 +46,12 @@ func (c *ChatInputModel) Value() string {
 func (c *ChatInputModel) EnterCmd(value string) tea.Cmd {
 	return func() tea.Msg {
 		return ChatInputEnterMsg{Value: value}
+	}
+}
+
+func (c *ChatInputModel) EscapeCmd() tea.Cmd {
+	return func() tea.Msg {
+		return EscapeMsg{}
 	}
 }
 
@@ -62,6 +68,8 @@ func (c *ChatInputModel) Update(msg tea.Msg) (ChatInputModel, tea.Cmd) {
 			value := c.inner.Value()
 			c.inner.Reset()
 			return *c, c.EnterCmd(value)
+		case tea.KeyEscape:
+			return *c, c.EscapeCmd()
 		}
 	case error:
 		// TODO: how to handle errors

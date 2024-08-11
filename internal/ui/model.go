@@ -51,6 +51,8 @@ type Model struct {
 	messagesModel  list.Model
 	historyModel   list.Model
 	chatInputModel components.ChatInputModel
+	focusedModel   string
+	selectedModel  string
 
 	threads       []*db.Thread
 	threadsOffset int
@@ -88,8 +90,9 @@ func New(conf *Config, store store.Store) (*Model, error) {
 }
 
 func (m *Model) Init() tea.Cmd {
+	m.focusedModel = "chat_input"
+	m.selectedModel = "chat_input"
 	return tea.Batch(
-		m.chatInputModel.Init(),
 		m.chatInputModel.Focus(),
 	)
 }
@@ -101,6 +104,15 @@ func (m *Model) View() string {
 	historyContainer := container.Copy().Width(m.conf.historyWidth).Height(m.conf.historyHeight)
 	messagesContainer := container.Copy().Width(m.conf.messagesWidth).Height(m.conf.messagesHeight)
 	chatInputContainer := container.Copy().Width(m.conf.chatInputWidth).Height(m.conf.chatInputHeight)
+
+	switch m.selectedModel {
+	case "history":
+		styles.SetActiveBorder(&historyContainer)
+	case "messages":
+		styles.SetActiveBorder(&messagesContainer)
+	case "chat_input":
+		styles.SetActiveBorder(&chatInputContainer)
+	}
 
 	return mainContainer.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
@@ -117,22 +129,61 @@ func (m *Model) View() string {
 	)
 }
 
-// TODO: how does the Update loop work?
-func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	var historyCmd, messagesCmd, chatInputCmd tea.Cmd
-	m.chatInputModel, chatInputCmd = m.chatInputModel.Update(msg)
+func (m *Model) handleKeyMsg(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch keyMsg.String() {
+	case "j", "up":
+		switch m.selectedModel {
+		case "chat_input":
+			m.selectedModel = "messages"
+		}
+	case "k", "down":
+		switch m.selectedModel {
+		case "messages", "history":
+			m.selectedModel = "chat_input"
+		}
+	case "h", "left":
+		switch m.selectedModel {
+		case "messages":
+			m.selectedModel = "history"
+		}
+	case "l", "right":
+		switch m.selectedModel {
+		case "history":
+			m.selectedModel = "messages"
+		}
+	case "ctrl+c", "ctrl+d":
+		return m, tea.Quit
+	}
+	return m, nil
+}
 
-	// TODO: store in db
-	if msg, ok := msg.(components.ChatInputEnterMsg); ok {
-		// TODO: not use SetItems directly?
-		// is there a better way to do this? bubble tea recommends not to use Cmd like this
+func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	switch m.focusedModel {
+	case "history":
+		m.historyModel, cmd = m.historyModel.Update(msg)
+	case "messages":
+		m.messagesModel, cmd = m.messagesModel.Update(msg)
+	case "chat_input":
+		m.chatInputModel, cmd = m.chatInputModel.Update(msg)
+	case "none":
+		switch msg := msg.(type) {
+		case tea.KeyMsg:
+			return m.handleKeyMsg(msg)
+		}
+	}
+
+	switch msg := msg.(type) {
+	case components.ChatInputEnterMsg:
+		// TODO: store in db
 		if msg.Value != "" {
 			// TODO: send API request
 			m.messages = append(m.messages, &db.Message{Content: msg.Value})
 			m.messagesModel.SetItems(components.NewMessageListItems(m.messages))
 		}
+	case components.EscapeMsg:
+		m.focusedModel = "none"
+		m.chatInputModel.Blur()
 	}
-	m.messagesModel, messagesCmd = m.messagesModel.Update(msg)
-	m.historyModel, historyCmd = m.historyModel.Update(msg)
-	return m, tea.Batch(historyCmd, messagesCmd, chatInputCmd)
+	return m, cmd
 }

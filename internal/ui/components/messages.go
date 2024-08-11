@@ -13,5 +13,6 @@ func NewMessagesModel(messages []*db.Message, width, height int) list.Model {
 	model.Styles.Title = styles.DefaultListStyle()
 	model.SetShowStatusBar(false)
 	model.SetShowHelp(false)
+	model.DisableQuitKeybindings()
 	return model
 }

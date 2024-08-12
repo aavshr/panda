@@ -2,13 +2,13 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/aavshr/panda/internal/db"
 	"github.com/aavshr/panda/internal/ui/components"
 	"github.com/aavshr/panda/internal/ui/store"
 	"github.com/aavshr/panda/internal/ui/styles"
 
-	//"github.com/aavshr/panda/internal/ui/styles"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -180,6 +180,15 @@ func (m *Model) setFocusedComponent(com components.Component) {
 	if c, ok := m.componentsToContainer[com]; ok {
 		styles.SetFocusedBorder(&c)
 		m.componentsToContainer[com] = c
+
+		switch com {
+		case components.ComponentChatInput:
+			m.chatInputModel.Focus()
+		case components.ComponentMessages:
+			components.FocusListModel(&m.messagesModel)
+		case components.ComponentHistory:
+			components.FocusListModel(&m.historyModel)
+		}
 	}
 }
 
@@ -204,12 +213,23 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// TODO: store in db
 		if msg.Value != "" {
 			// TODO: send API request
-			m.messages = append(m.messages, &db.Message{Content: msg.Value})
+			m.messages = append(m.messages, &db.Message{
+				Role:      "user",
+				Content:   msg.Value,
+				CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
+			})
 			m.messagesModel.SetItems(components.NewMessageListItems(m.messages))
 		}
 	case components.MsgEscape:
 		m.focusedComponent = components.ComponentNone
-		m.chatInputModel.Blur()
+		switch m.focusedComponent {
+		case components.ComponentChatInput:
+			m.chatInputModel.Blur()
+		case components.ComponentMessages:
+			components.BlurListModel(&m.messagesModel)
+		case components.ComponentHistory:
+			components.BlurListModel(&m.historyModel)
+		}
 	}
 	return m, cmd
 }

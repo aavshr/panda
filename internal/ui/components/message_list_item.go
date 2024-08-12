@@ -1,10 +1,12 @@
 package components
 
 import (
+	"fmt"
+	"io"
+
 	"github.com/aavshr/panda/internal/db"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
-	"io"
 )
 
 // MessageListItem implements the list.Item, list.DefaultItem and list.ItemDelegate interface
@@ -17,7 +19,11 @@ func (t *MessageListItem) Title() string {
 }
 
 func (t *MessageListItem) Description() string {
-	return t.message.CreatedAt
+	role := "You"
+	if t.message.Role == "assistant" {
+		role = "AI"
+	}
+	return fmt.Sprintf("%s at %s", role, t.message.CreatedAt)
 }
 
 func (t *MessageListItem) FilterValue() string {

@@ -51,7 +51,7 @@ func (c *ChatInputModel) EnterCmd(value string) tea.Cmd {
 
 func (c *ChatInputModel) EscapeCmd() tea.Cmd {
 	return func() tea.Msg {
-		return EscapeMsg{}
+		return MsgEscape{}
 	}
 }
 

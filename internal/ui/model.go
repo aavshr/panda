@@ -26,12 +26,6 @@ const (
 	heightSeparationRatio = 0.1
 )
 
-const (
-	titleMessages = "Messages"
-	titleSettings = "Settings"
-	titlePrompt   = "Prompt"
-)
-
 type Config struct {
 	InitThreadsLimit int
 	MaxThreadsLimit  int
@@ -51,14 +45,16 @@ type Model struct {
 	messagesModel  list.Model
 	historyModel   list.Model
 	chatInputModel components.ChatInputModel
-	focusedModel   string
-	selectedModel  string
 
 	threads       []*db.Thread
 	threadsOffset int
 
 	messages       []*db.Message
 	messagesOffset int
+
+	componentsToContainer map[components.Component]lipgloss.Style
+	focusedComponent      components.Component
+	selectedComponent     components.Component
 
 	store store.Store
 }
@@ -82,16 +78,28 @@ func New(conf *Config, store store.Store) (*Model, error) {
 	if err != nil {
 		return m, fmt.Errorf("store.ListLatestThreadsPaginated %w", err)
 	}
+
 	m.threads = threads
 	m.historyModel = components.NewHistoryModel(m.threads, conf.historyWidth, conf.historyHeight)
 	m.messagesModel = components.NewMessagesModel(m.messages, conf.messagesWidth, conf.messagesHeight)
 	m.chatInputModel = components.NewChatInputModel(conf.chatInputWidth, conf.chatInputHeight)
+
+	container := styles.ContainerStyle()
+	historyContainer := container.Copy().Width(m.conf.historyWidth).Height(m.conf.historyHeight)
+	messagesContainer := container.Copy().Width(m.conf.messagesWidth).Height(m.conf.messagesHeight)
+	chatInputContainer := container.Copy().Width(m.conf.chatInputWidth).Height(m.conf.chatInputHeight)
+	m.componentsToContainer = map[components.Component]lipgloss.Style{
+		components.ComponentHistory:   historyContainer,
+		components.ComponentMessages:  messagesContainer,
+		components.ComponentChatInput: chatInputContainer,
+	}
+
 	return m, nil
 }
 
 func (m *Model) Init() tea.Cmd {
-	m.focusedModel = "chat_input"
-	m.selectedModel = "chat_input"
+	m.focusedComponent = components.ComponentChatInput
+	m.selectedComponent = components.ComponentChatInput
 	return tea.Batch(
 		m.chatInputModel.Focus(),
 	)
@@ -100,30 +108,24 @@ func (m *Model) Init() tea.Cmd {
 func (m *Model) View() string {
 	mainContainer := styles.MainContainerStyle()
 
-	container := styles.ContainerStyle()
-	historyContainer := container.Copy().Width(m.conf.historyWidth).Height(m.conf.historyHeight)
-	messagesContainer := container.Copy().Width(m.conf.messagesWidth).Height(m.conf.messagesHeight)
-	chatInputContainer := container.Copy().Width(m.conf.chatInputWidth).Height(m.conf.chatInputHeight)
+	if container, ok := m.componentsToContainer[m.selectedComponent]; ok {
+		styles.SetSelectedBorder(&container)
+	}
 
-	switch m.selectedModel {
-	case "history":
-		styles.SetActiveBorder(&historyContainer)
-	case "messages":
-		styles.SetActiveBorder(&messagesContainer)
-	case "chat_input":
-		styles.SetActiveBorder(&chatInputContainer)
+	if container, ok := m.componentsToContainer[m.focusedComponent]; ok {
+		styles.SetFocusedBorder(&container)
 	}
 
 	return mainContainer.Render(
 		lipgloss.JoinVertical(lipgloss.Left,
 			lipgloss.JoinHorizontal(
 				lipgloss.Top,
-				historyContainer.Render(m.historyModel.View()),
-				messagesContainer.Render(m.messagesModel.View()),
+				m.componentsToContainer[components.ComponentHistory].Render(m.historyModel.View()),
+				m.componentsToContainer[components.ComponentMessages].Render(m.messagesModel.View()),
 			),
 			lipgloss.JoinVertical(
 				lipgloss.Left,
-				chatInputContainer.Render(m.chatInputModel.View()),
+				m.componentsToContainer[components.ComponentChatInput].Render(m.chatInputModel.View()),
 			),
 		),
 	)
@@ -132,41 +134,65 @@ func (m *Model) View() string {
 func (m *Model) handleKeyMsg(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch keyMsg.String() {
 	case "j", "up":
-		switch m.selectedModel {
-		case "chat_input":
-			m.selectedModel = "messages"
+		switch m.selectedComponent {
+		case components.ComponentChatInput:
+			m.setSelectedComponent(components.ComponentMessages)
 		}
 	case "k", "down":
-		switch m.selectedModel {
-		case "messages", "history":
-			m.selectedModel = "chat_input"
+		switch m.selectedComponent {
+		case components.ComponentMessages, components.ComponentHistory:
+			m.setSelectedComponent(components.ComponentChatInput)
 		}
 	case "h", "left":
-		switch m.selectedModel {
-		case "messages":
-			m.selectedModel = "history"
+		switch m.selectedComponent {
+		case components.ComponentMessages:
+			m.setSelectedComponent(components.ComponentHistory)
 		}
 	case "l", "right":
-		switch m.selectedModel {
-		case "history":
-			m.selectedModel = "messages"
+		switch m.selectedComponent {
+		case components.ComponentHistory:
+			m.setSelectedComponent(components.ComponentMessages)
 		}
+	case "enter":
+		m.setFocusedComponent(m.selectedComponent)
+		return m, m.cmdFocusedComponent
 	case "ctrl+c", "ctrl+d":
 		return m, tea.Quit
 	}
-	return m, nil
+	return m, m.cmdSelectComponent
+}
+
+func (m *Model) setSelectedComponent(com components.Component) {
+	if c, ok := m.componentsToContainer[com]; ok {
+		if currentContainer, ok := m.componentsToContainer[m.selectedComponent]; ok {
+			styles.SetNormalBorder(&currentContainer)
+			m.componentsToContainer[m.selectedComponent] = currentContainer
+		}
+		m.selectedComponent = com
+		styles.SetSelectedBorder(&c)
+		m.componentsToContainer[com] = c
+	}
+}
+
+func (m *Model) setFocusedComponent(com components.Component) {
+	// focused component can be ComponentNone which won't be in the map
+	m.focusedComponent = com
+	if c, ok := m.componentsToContainer[com]; ok {
+		styles.SetFocusedBorder(&c)
+		m.componentsToContainer[com] = c
+	}
 }
 
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
-	switch m.focusedModel {
-	case "history":
+	switch m.focusedComponent {
+	case components.ComponentHistory:
 		m.historyModel, cmd = m.historyModel.Update(msg)
-	case "messages":
+	case components.ComponentMessages:
 		m.messagesModel, cmd = m.messagesModel.Update(msg)
-	case "chat_input":
+	case components.ComponentChatInput:
 		m.chatInputModel, cmd = m.chatInputModel.Update(msg)
-	case "none":
+	case components.ComponentNone:
 		switch msg := msg.(type) {
 		case tea.KeyMsg:
 			return m.handleKeyMsg(msg)
@@ -181,8 +207,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.messages = append(m.messages, &db.Message{Content: msg.Value})
 			m.messagesModel.SetItems(components.NewMessageListItems(m.messages))
 		}
-	case components.EscapeMsg:
-		m.focusedModel = "none"
+	case components.MsgEscape:
+		m.focusedComponent = components.ComponentNone
 		m.chatInputModel.Blur()
 	}
 	return m, cmd

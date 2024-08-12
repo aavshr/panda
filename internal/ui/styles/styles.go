@@ -5,12 +5,12 @@ import (
 )
 
 const (
-	TitleColor             = "#eb5e55"
-	TitleSecondaryColor    = "#f9c784"
-	ActiveContainerColor   = "#f9c784"
-	ListItemColor          = "#c6d8d3"
-	ListItemSecondaryColor = "#fdf0d5"
-	DescriptionColor       = "#d81e5b"
+	TitleColor             = lipgloss.Color("#eb5e55")
+	TitleSecondaryColor    = lipgloss.Color("#f9c784")
+	ActiveContainerColor   = lipgloss.Color("#f9c784")
+	ListItemColor          = lipgloss.Color("#c6d8d3")
+	ListItemSecondaryColor = lipgloss.Color("#fdf0d5")
+	DescriptionColor       = lipgloss.Color("#d81e5b")
 )
 
 func MainContainerStyle() lipgloss.Style {
@@ -25,8 +25,16 @@ func ContainerStyle() lipgloss.Style {
 	return s
 }
 
-func SetActiveBorder(s *lipgloss.Style) {
-	s.BorderForeground(lipgloss.Color(ActiveContainerColor))
+func SetNormalBorder(s *lipgloss.Style) {
+	s.UnsetBorderForeground()
+}
+
+func SetSelectedBorder(s *lipgloss.Style) {
+	s.BorderForeground(ActiveContainerColor)
+}
+
+func SetFocusedBorder(s *lipgloss.Style) {
+	s.BorderForeground(TitleColor)
 }
 
 func SidebarContainerStyle(width int) lipgloss.Style {
@@ -44,25 +52,25 @@ func MessagesContainerStyle(width int) lipgloss.Style {
 func DefaultListStyle() lipgloss.Style {
 	s := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color(TitleSecondaryColor))
+		Foreground(TitleSecondaryColor)
 	return s
 }
 
 func DefaultListSelectedStyle() lipgloss.Style {
 	s := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color(TitleColor))
+		Foreground(TitleColor)
 	return s
 }
 
 func DefaultListItemStyle() lipgloss.Style {
 	s := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ListItemColor))
+		Foreground(ListItemColor)
 	return s
 }
 
 func DefaultListItemSecondaryStyle() lipgloss.Style {
 	s := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ListItemSecondaryColor))
+		Foreground(ListItemSecondaryColor)
 	return s
 }

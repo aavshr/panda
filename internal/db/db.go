@@ -9,7 +9,7 @@ import (
 )
 
 type Config struct {
-	DataDirPath string
+	DataDirPath  string
 	DatabaseName string
 }
 
@@ -32,13 +32,13 @@ func New(config Config, schemaInit, migrations *string) (*Store, error) {
 	if err != nil {
 		return nil, fmt.Errorf("sqlx.Open: %w", err)
 	}
-	if schemaInit != nil && *schemaInit != ""{
+	if schemaInit != nil && *schemaInit != "" {
 		_, err = db.Exec(*schemaInit)
 		if err != nil {
 			return nil, fmt.Errorf("could not init schemas, db.Exec: %w", err)
 		}
 	}
-	if migrations != nil  && *migrations != ""{
+	if migrations != nil && *migrations != "" {
 		_, err = db.Exec(*migrations)
 		if err != nil {
 			return nil, fmt.Errorf("could not run migrations, db.Exec: %w", err)

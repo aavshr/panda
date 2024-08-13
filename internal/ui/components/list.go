@@ -43,6 +43,10 @@ func (m *ListModel) Blur() {
 	m.inner.Select(-1)
 }
 
+func (m *ListModel) Select(i int) {
+	m.inner.Select(i)
+}
+
 func (m *ListModel) SetItems(items []list.Item) {
 	m.inner.SetItems(items)
 }

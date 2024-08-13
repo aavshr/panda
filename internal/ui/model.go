@@ -8,6 +8,7 @@ import (
 	"github.com/aavshr/panda/internal/ui/components"
 	"github.com/aavshr/panda/internal/ui/store"
 	"github.com/aavshr/panda/internal/ui/styles"
+	"github.com/aavshr/panda/internal/utils"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -25,6 +26,7 @@ const (
 	heightSeparationRatio = 0.1
 	titleMessages         = "Messages"
 	titleHistory          = "History"
+	timeFormat            = "2006-01-02 15:04:05"
 )
 
 type Config struct {
@@ -58,7 +60,8 @@ type Model struct {
 	focusedComponent      components.Component
 	selectedComponent     components.Component
 
-	store store.Store
+	activeThreadID string
+	store          store.Store
 }
 
 func New(conf *Config, store store.Store) (*Model, error) {
@@ -76,26 +79,44 @@ func New(conf *Config, store store.Store) (*Model, error) {
 		conf:  conf,
 		store: store,
 	}
+
+	newThreadID, err := utils.RandomID()
+	if err != nil {
+		return nil, fmt.Errorf("utils.RandomID %w", err)
+	}
+	m.activeThreadID = newThreadID
+	now := time.Now().Format(timeFormat)
+	m.threads = []*db.Thread{
+		{
+			ID:        newThreadID,
+			Name:      "New Thread",
+			CreatedAt: now,
+			UpdatedAt: now,
+		},
+	}
 	threads, err := m.store.ListLatestThreadsPaginated(0, m.conf.InitThreadsLimit)
 	if err != nil {
 		return m, fmt.Errorf("store.ListLatestThreadsPaginated %w", err)
 	}
+	m.threads = append(m.threads, threads...)
+
 	m.messages = []*db.Message{}
 	if len(threads) > 0 {
-		messages, err := m.store.ListLatestMessagesPaginated(threads[0].ID, 0, m.conf.MessagesLimit)
+		messages, err := m.store.ListMessagesByThreadIDPaginated(threads[0].ID, 0, m.conf.MessagesLimit)
 		if err != nil {
 			return m, fmt.Errorf("store.ListLatestMessagesPaginated %w", err)
 		}
 		m.messages = messages
 	}
 
-	m.threads = threads
 	m.historyModel = components.NewListModel(
 		titleHistory,
 		components.NewThreadListItems(m.threads),
 		conf.historyWidth,
 		conf.historyHeight,
 	)
+	m.historyModel.Select(0) // New Thread is selected by default
+
 	m.messagesModel = components.NewListModel(
 		titleMessages,
 		components.NewMessageListItems(m.messages),

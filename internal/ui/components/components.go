@@ -1,7 +1,7 @@
 package components
 
 import (
-	"github.com/charmbracelet/bubbles/list"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type Component string
@@ -15,12 +15,6 @@ const (
 
 type MsgEscape struct{}
 
-func FocusListModel(model *list.Model) {
-	model.FilterInput.Focus()
-	model.Select(0)
-}
-
-func BlurListModel(model *list.Model) {
-	model.FilterInput.Blur()
-	model.Select(-1)
+func EscapeCmd() tea.Msg {
+	return MsgEscape{}
 }

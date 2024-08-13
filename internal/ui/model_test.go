@@ -25,7 +25,22 @@ func TestModel_View(t *testing.T) {
 			UpdatedAt: "2024-01-02",
 		},
 	}
-	mockStore := store.NewMock(testThreads)
+	testMessages := []*db.Message{
+		{
+			ThreadID:  "1",
+			Content:   "Message 1",
+			Role:      "user",
+			CreatedAt: "2024-01-01",
+		},
+		{
+			ThreadID:  "1",
+			Content:   "Message 2",
+			Role:      "assistant",
+			CreatedAt: "2024-01-01",
+		},
+	}
+
+	mockStore := store.NewMock(testThreads, testMessages)
 
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -35,6 +50,7 @@ func TestModel_View(t *testing.T) {
 	m, _ := New(&Config{
 		InitThreadsLimit: 10,
 		MaxThreadsLimit:  100,
+		MessagesLimit:    50,
 		Width:            width - 10,
 		Height:           height - 10,
 	}, mockStore)

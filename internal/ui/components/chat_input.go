@@ -49,12 +49,6 @@ func (c *ChatInputModel) EnterCmd(value string) tea.Cmd {
 	}
 }
 
-func (c *ChatInputModel) EscapeCmd() tea.Cmd {
-	return func() tea.Msg {
-		return MsgEscape{}
-	}
-}
-
 func (c *ChatInputModel) Update(msg tea.Msg) (ChatInputModel, tea.Cmd) {
 	var cmd tea.Cmd
 	c.inner, cmd = c.inner.Update(msg)
@@ -69,7 +63,7 @@ func (c *ChatInputModel) Update(msg tea.Msg) (ChatInputModel, tea.Cmd) {
 			c.inner.Reset()
 			return *c, c.EnterCmd(value)
 		case tea.KeyEscape:
-			return *c, c.EscapeCmd()
+			return *c, EscapeCmd
 		}
 	case error:
 		// TODO: how to handle errors

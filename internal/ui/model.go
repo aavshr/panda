@@ -9,7 +9,6 @@ import (
 	"github.com/aavshr/panda/internal/ui/store"
 	"github.com/aavshr/panda/internal/ui/styles"
 
-	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -24,11 +23,14 @@ const (
 	*/
 	widthSeparationRatio  = 0.2
 	heightSeparationRatio = 0.1
+	titleMessages         = "Messages"
+	titleHistory          = "History"
 )
 
 type Config struct {
 	InitThreadsLimit int
 	MaxThreadsLimit  int
+	MessagesLimit    int
 	Width            int
 	Height           int
 	historyWidth     int
@@ -42,8 +44,8 @@ type Config struct {
 type Model struct {
 	conf *Config
 
-	messagesModel  list.Model
-	historyModel   list.Model
+	messagesModel  components.ListModel
+	historyModel   components.ListModel
 	chatInputModel components.ChatInputModel
 
 	threads       []*db.Thread
@@ -78,10 +80,28 @@ func New(conf *Config, store store.Store) (*Model, error) {
 	if err != nil {
 		return m, fmt.Errorf("store.ListLatestThreadsPaginated %w", err)
 	}
+	m.messages = []*db.Message{}
+	if len(threads) > 0 {
+		messages, err := m.store.ListLatestMessagesPaginated(threads[0].ID, 0, m.conf.MessagesLimit)
+		if err != nil {
+			return m, fmt.Errorf("store.ListLatestMessagesPaginated %w", err)
+		}
+		m.messages = messages
+	}
 
 	m.threads = threads
-	m.historyModel = components.NewHistoryModel(m.threads, conf.historyWidth, conf.historyHeight)
-	m.messagesModel = components.NewMessagesModel(m.messages, conf.messagesWidth, conf.messagesHeight)
+	m.historyModel = components.NewListModel(
+		titleHistory,
+		components.NewThreadListItems(m.threads),
+		conf.historyWidth,
+		conf.historyHeight,
+	)
+	m.messagesModel = components.NewListModel(
+		titleMessages,
+		components.NewMessageListItems(m.messages),
+		conf.messagesWidth,
+		conf.messagesHeight,
+	)
 	m.chatInputModel = components.NewChatInputModel(conf.chatInputWidth, conf.chatInputHeight)
 
 	container := styles.ContainerStyle()
@@ -185,9 +205,9 @@ func (m *Model) setFocusedComponent(com components.Component) {
 		case components.ComponentChatInput:
 			m.chatInputModel.Focus()
 		case components.ComponentMessages:
-			components.FocusListModel(&m.messagesModel)
+			m.messagesModel.Focus()
 		case components.ComponentHistory:
-			components.FocusListModel(&m.historyModel)
+			m.historyModel.Focus()
 		}
 	}
 }
@@ -226,9 +246,9 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case components.ComponentChatInput:
 			m.chatInputModel.Blur()
 		case components.ComponentMessages:
-			components.BlurListModel(&m.messagesModel)
+			m.messagesModel.Blur()
 		case components.ComponentHistory:
-			components.BlurListModel(&m.historyModel)
+			m.historyModel.Blur()
 		}
 	}
 	return m, cmd

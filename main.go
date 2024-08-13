@@ -64,7 +64,7 @@ func main() {
 			UpdatedAt: "2024-01-02",
 		},
 	}
-	mockStore := store.NewMock(testThreads)
+	mockStore := store.NewMock(testThreads, []*db.Message{})
 
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {

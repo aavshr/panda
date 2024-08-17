@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/aavshr/panda/internal/ui/styles"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -12,9 +13,21 @@ type ListEnterMsg struct {
 	Index int
 }
 
+type ListSelectMsg struct {
+	Index int
+}
+
 func ListEnterCmd(selectedIndex int) func() tea.Msg {
 	return func() tea.Msg {
 		return ListEnterMsg{
+			Index: selectedIndex,
+		}
+	}
+}
+
+func ListSelectCmd(selectedIndex int) func() tea.Msg {
+	return func() tea.Msg {
+		return ListSelectMsg{
 			Index: selectedIndex,
 		}
 	}
@@ -31,7 +44,7 @@ func NewListModel(title string, items []list.Item, width, height int) ListModel 
 	model.SetShowStatusBar(false)
 	model.SetShowHelp(false)
 	model.FilterInput.Blur()
-	model.InfiniteScrolling = false
+	//model.InfiniteScrolling = true
 	// no item should be selected by default
 	model.Select(-1)
 	model.Styles.NoItems.Padding(0, 0, 1, 2)
@@ -71,6 +84,12 @@ func (m *ListModel) View() string {
 	return m.inner.View()
 }
 
+func (m *ListModel) GoToLastPage() {
+	for !m.inner.Paginator.OnLastPage() {
+		m.inner.Paginator.NextPage()
+	}
+}
+
 func (m *ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 	var cmd tea.Cmd
 	m.inner, cmd = m.inner.Update(msg)
@@ -84,9 +103,9 @@ func (m *ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 		case tea.KeyEnter:
 			return *m, ListEnterCmd(m.inner.Index())
 		}
-	case error:
-		// TODO: how to handle errors
-		return *m, cmd
+		if key.Matches(msg, m.inner.KeyMap.CursorUp) || key.Matches(msg, m.inner.KeyMap.CursorDown) {
+			return *m, ListSelectCmd(m.inner.Index())
+		}
 	}
 	return *m, cmd
 }

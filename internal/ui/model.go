@@ -106,19 +106,22 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 	m.threads = append(m.threads, threads...)
 
 	m.messages = []*db.Message{}
+
+	containerPaddingHeight := 18
+	containerPaddingWidth := 10
 	m.historyModel = components.NewListModel(
 		titleHistory,
 		components.NewThreadListItems(m.threads),
-		conf.historyWidth,
-		conf.historyHeight,
+		conf.historyWidth-containerPaddingWidth,
+		conf.historyHeight-containerPaddingHeight,
 	)
 	m.historyModel.Select(0) // New Thread is selected by default
 
 	m.messagesModel = components.NewListModel(
 		titleMessages,
 		components.NewMessageListItems(m.messages),
-		conf.messagesWidth,
-		conf.messagesHeight,
+		conf.messagesWidth-containerPaddingWidth,
+		conf.messagesHeight-containerPaddingHeight,
 	)
 	m.chatInputModel = components.NewChatInputModel(conf.chatInputWidth, conf.chatInputHeight)
 
@@ -143,6 +146,7 @@ func (m *Model) setThreads(threads []*db.Thread) {
 func (m *Model) setMessages(messages []*db.Message) {
 	m.messages = messages
 	m.messagesModel.SetItems(components.NewMessageListItems(messages))
+	m.messagesModel.GoToLastPage()
 }
 
 func (m *Model) setActiveThreadIndex(index int) {
@@ -211,6 +215,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.handleEscapeMsg()
 	case components.ListEnterMsg:
 		cmd = m.handleListEnterMsg(msg)
+	case components.ListSelectMsg:
+		cmd = m.handleListSelectMsg(msg)
 	case ForwardChatCompletionStreamMsg:
 		cmd = m.handleForwardChatCompletionStreamMsg(msg)
 	case error:

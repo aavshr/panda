@@ -16,12 +16,12 @@ import (
 
 func (m *Model) handleKeyMsg(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch keyMsg.String() {
-	case "j", "up":
+	case "k", "up":
 		switch m.selectedComponent {
 		case components.ComponentChatInput:
 			m.setSelectedComponent(components.ComponentHistory)
 		}
-	case "k", "down":
+	case "j", "down":
 		switch m.selectedComponent {
 		case components.ComponentMessages, components.ComponentHistory:
 			m.setSelectedComponent(components.ComponentChatInput)
@@ -71,6 +71,8 @@ func (m *Model) setFocusedComponent(com components.Component) {
 			m.messagesModel.Focus()
 		case components.ComponentHistory:
 			m.historyModel.Focus()
+			// TODO: check why we need to reslect the activethreadindex
+			m.historyModel.Select(m.activeThreadIndex)
 		}
 	}
 }
@@ -154,9 +156,10 @@ func (m *Model) handleEscapeMsg() {
 }
 
 func (m *Model) handleListEnterMsg(msg components.ListEnterMsg) tea.Cmd {
+	// TODO: handle entering a message for messages
+	// either copy the entire message or let user copy only specific parts
 	switch m.focusedComponent {
 	case components.ComponentHistory:
-		m.setActiveThreadIndex(msg.Index)
 		// first item is always for new thread
 		if msg.Index == 0 {
 			m.setMessages([]*db.Message{})
@@ -164,6 +167,18 @@ func (m *Model) handleListEnterMsg(msg components.ListEnterMsg) tea.Cmd {
 			m.setFocusedComponent(components.ComponentChatInput)
 			return nil
 		}
+		m.setSelectedComponent(components.ComponentMessages)
+		m.setFocusedComponent(components.ComponentMessages)
+	case components.ComponentMessages:
+	}
+	return nil
+}
+
+func (m *Model) handleListSelectMsg(msg components.ListSelectMsg) tea.Cmd {
+	switch m.focusedComponent {
+	case components.ComponentHistory:
+		m.setActiveThreadIndex(msg.Index)
+
 		if len(m.threads) == 0 || msg.Index >= len(m.threads) {
 			return m.cmdError(fmt.Errorf("invalid thread index"))
 		}

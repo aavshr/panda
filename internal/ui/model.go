@@ -2,13 +2,12 @@ package ui
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/aavshr/panda/internal/db"
 	"github.com/aavshr/panda/internal/ui/components"
+	"github.com/aavshr/panda/internal/ui/llm"
 	"github.com/aavshr/panda/internal/ui/store"
 	"github.com/aavshr/panda/internal/ui/styles"
-	"github.com/aavshr/panda/internal/utils"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -27,6 +26,7 @@ const (
 	titleMessages         = "Messages"
 	titleHistory          = "History"
 	timeFormat            = "2006-01-02 15:04:05"
+	newThreadName         = "New"
 )
 
 type Config struct {
@@ -50,8 +50,9 @@ type Model struct {
 	historyModel   components.ListModel
 	chatInputModel components.ChatInputModel
 
-	threads       []*db.Thread
-	threadsOffset int
+	threads           []*db.Thread
+	threadsOffset     int
+	activeThreadIndex int
 
 	messages       []*db.Message
 	messagesOffset int
@@ -60,8 +61,10 @@ type Model struct {
 	focusedComponent      components.Component
 	selectedComponent     components.Component
 
-	activeThreadID string
-	store          store.Store
+	store store.Store
+	llm   llm.LLM
+
+	errorState error
 }
 
 func New(conf *Config, store store.Store) (*Model, error) {
@@ -80,18 +83,12 @@ func New(conf *Config, store store.Store) (*Model, error) {
 		store: store,
 	}
 
-	newThreadID, err := utils.RandomID()
-	if err != nil {
-		return nil, fmt.Errorf("utils.RandomID %w", err)
-	}
-	m.activeThreadID = newThreadID
-	now := time.Now().Format(timeFormat)
+	m.activeThreadIndex = 0
 	m.threads = []*db.Thread{
 		{
-			ID:        newThreadID,
-			Name:      "New Thread",
-			CreatedAt: now,
-			UpdatedAt: now,
+			Name: newThreadName,
+			// TODO: not this hack lmao
+			CreatedAt: "Create a new thread..",
 		},
 	}
 	threads, err := m.store.ListLatestThreadsPaginated(0, m.conf.InitThreadsLimit)
@@ -101,14 +98,6 @@ func New(conf *Config, store store.Store) (*Model, error) {
 	m.threads = append(m.threads, threads...)
 
 	m.messages = []*db.Message{}
-	if len(threads) > 0 {
-		messages, err := m.store.ListMessagesByThreadIDPaginated(threads[0].ID, 0, m.conf.MessagesLimit)
-		if err != nil {
-			return m, fmt.Errorf("store.ListLatestMessagesPaginated %w", err)
-		}
-		m.messages = messages
-	}
-
 	m.historyModel = components.NewListModel(
 		titleHistory,
 		components.NewThreadListItems(m.threads),
@@ -138,6 +127,21 @@ func New(conf *Config, store store.Store) (*Model, error) {
 	return m, nil
 }
 
+func (m *Model) setThreads(threads []*db.Thread) {
+	m.threads = threads
+	m.historyModel.SetItems(components.NewThreadListItems(threads))
+}
+
+func (m *Model) setMessages(messages []*db.Message) {
+	m.messages = messages
+	m.messagesModel.SetItems(components.NewMessageListItems(messages))
+}
+
+func (m *Model) setActiveThreadIndex(index int) {
+	m.activeThreadIndex = index
+	m.historyModel.Select(index)
+}
+
 func (m *Model) Init() tea.Cmd {
 	m.focusedComponent = components.ComponentChatInput
 	m.selectedComponent = components.ComponentChatInput
@@ -147,6 +151,10 @@ func (m *Model) Init() tea.Cmd {
 }
 
 func (m *Model) View() string {
+	if m.errorState != nil {
+		return fmt.Sprintf("Error: %v", m.errorState)
+	}
+
 	mainContainer := styles.MainContainerStyle()
 
 	if container, ok := m.componentsToContainer[m.selectedComponent]; ok {
@@ -172,67 +180,6 @@ func (m *Model) View() string {
 	)
 }
 
-func (m *Model) handleKeyMsg(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch keyMsg.String() {
-	case "j", "up":
-		switch m.selectedComponent {
-		case components.ComponentChatInput:
-			m.setSelectedComponent(components.ComponentMessages)
-		}
-	case "k", "down":
-		switch m.selectedComponent {
-		case components.ComponentMessages, components.ComponentHistory:
-			m.setSelectedComponent(components.ComponentChatInput)
-		}
-	case "h", "left":
-		switch m.selectedComponent {
-		case components.ComponentMessages:
-			m.setSelectedComponent(components.ComponentHistory)
-		}
-	case "l", "right":
-		switch m.selectedComponent {
-		case components.ComponentHistory:
-			m.setSelectedComponent(components.ComponentMessages)
-		}
-	case "enter":
-		m.setFocusedComponent(m.selectedComponent)
-		return m, m.cmdFocusedComponent
-	case "ctrl+c", "ctrl+d":
-		return m, tea.Quit
-	}
-	return m, m.cmdSelectComponent
-}
-
-func (m *Model) setSelectedComponent(com components.Component) {
-	if c, ok := m.componentsToContainer[com]; ok {
-		if currentContainer, ok := m.componentsToContainer[m.selectedComponent]; ok {
-			styles.SetNormalBorder(&currentContainer)
-			m.componentsToContainer[m.selectedComponent] = currentContainer
-		}
-		m.selectedComponent = com
-		styles.SetSelectedBorder(&c)
-		m.componentsToContainer[com] = c
-	}
-}
-
-func (m *Model) setFocusedComponent(com components.Component) {
-	// focused component can be ComponentNone which won't be in the map
-	m.focusedComponent = com
-	if c, ok := m.componentsToContainer[com]; ok {
-		styles.SetFocusedBorder(&c)
-		m.componentsToContainer[com] = c
-
-		switch com {
-		case components.ComponentChatInput:
-			m.chatInputModel.Focus()
-		case components.ComponentMessages:
-			m.messagesModel.Focus()
-		case components.ComponentHistory:
-			m.historyModel.Focus()
-		}
-	}
-}
-
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch m.focusedComponent {
@@ -250,27 +197,18 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
-	case components.ChatInputEnterMsg:
-		// TODO: store in db
-		if msg.Value != "" {
-			// TODO: send API request
-			m.messages = append(m.messages, &db.Message{
-				Role:      "user",
-				Content:   msg.Value,
-				CreatedAt: time.Now().Format("2006-01-02 15:04:05"),
-			})
-			m.messagesModel.SetItems(components.NewMessageListItems(m.messages))
+	case components.ChatInputReturnMsg:
+		if err := m.handleChatInputReturnMsg(msg); err != nil {
+			return m, m.cmdError(err)
 		}
-	case components.MsgEscape:
-		m.focusedComponent = components.ComponentNone
-		switch m.focusedComponent {
-		case components.ComponentChatInput:
-			m.chatInputModel.Blur()
-		case components.ComponentMessages:
-			m.messagesModel.Blur()
-		case components.ComponentHistory:
-			m.historyModel.Blur()
-		}
+		// TODO: populate history with messages
+		return m, m.cmdCreateChatCompletionStream(msg.Value, []string{})
+	case components.EscapeMsg:
+		m.handleEscapeMsg()
+	case components.ListEnterMsg:
+		m.handleListEnterMsg(msg)
+	case error:
+		m.errorState = msg
 	}
 	return m, cmd
 }

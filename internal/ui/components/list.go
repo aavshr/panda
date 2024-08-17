@@ -8,6 +8,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type ListEnterMsg struct {
+	Index int
+}
+
+func ListEnterCmd(selectedIndex int) func() tea.Msg {
+	return func() tea.Msg {
+		return ListEnterMsg{
+			Index: selectedIndex,
+		}
+	}
+}
+
 type ListModel struct {
 	inner list.Model
 }
@@ -65,6 +77,8 @@ func (m *ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 		// TODO: handle enter key
 		case tea.KeyEscape:
 			return *m, EscapeCmd
+		case tea.KeyEnter:
+			return *m, ListEnterCmd(m.inner.Index())
 		}
 	case error:
 		// TODO: how to handle errors

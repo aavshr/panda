@@ -1,6 +1,6 @@
 module github.com/aavshr/panda
 
-go 1.20
+go 1.23
 
 require (
 	github.com/charmbracelet/bubbles v0.18.0

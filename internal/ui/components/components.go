@@ -13,8 +13,8 @@ const (
 	ComponentNone      Component = "none" // utility component
 )
 
-type MsgEscape struct{}
+type EscapeMsg struct{}
 
 func EscapeCmd() tea.Msg {
-	return MsgEscape{}
+	return EscapeMsg{}
 }

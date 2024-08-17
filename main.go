@@ -64,7 +64,38 @@ func main() {
 			UpdatedAt: "2024-01-02",
 		},
 	}
-	mockStore := store.NewMock(testThreads, []*db.Message{})
+	testMessages := []*db.Message{
+		{
+			ID:        "1",
+			Role:      "user",
+			ThreadID:  "1",
+			Content:   "Thread 1 Message 1",
+			CreatedAt: "2024-01-01",
+		},
+		{
+			ID:        "2",
+			Role:      "assistant",
+			ThreadID:  "1",
+			Content:   "Thread 1 Message 2",
+			CreatedAt: "2024-01-02",
+		},
+		{
+			ID:        "3",
+			Role:      "user",
+			ThreadID:  "2",
+			Content:   "Thread 2 Message 1",
+			CreatedAt: "2024-01-01",
+		},
+		{
+			ID:        "4",
+			Role:      "assistant",
+			ThreadID:  "2",
+			Content:   "Thread 2 Message 2",
+			CreatedAt: "2024-01-02",
+		},
+	}
+
+	mockStore := store.NewMock(testThreads, testMessages)
 
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {

@@ -1,11 +1,13 @@
 package store
 
-import "github.com/aavshr/panda/internal/db"
+import (
+	"github.com/aavshr/panda/internal/db"
+)
 
 type Store interface {
 	ListLatestThreadsPaginated(offset, limit int) ([]*db.Thread, error)
 	ListMessagesByThreadIDPaginated(threadID string, offset, limit int) ([]*db.Message, error)
-	CreateThread(thread *db.Thread) error
+	UpsertThread(thread *db.Thread) error
 	UpdateThreadName(threadID, name string) error
 	DeleteThread(threadID string) error
 	DeleteAllThreads() error
@@ -14,13 +16,17 @@ type Store interface {
 
 type Mock struct {
 	threads  []*db.Thread
-	messages []*db.Message
+	messages map[string][]*db.Message
 }
 
 func NewMock(threads []*db.Thread, messages []*db.Message) *Mock {
+	msgs := make(map[string][]*db.Message)
+	for _, message := range messages {
+		msgs[message.ThreadID] = append(msgs[message.ThreadID], message)
+	}
 	return &Mock{
 		threads:  threads,
-		messages: messages,
+		messages: msgs,
 	}
 }
 
@@ -29,11 +35,19 @@ func (m *Mock) ListLatestThreadsPaginated(offset, limit int) ([]*db.Thread, erro
 }
 
 func (m *Mock) ListMessagesByThreadIDPaginated(threadID string, offset, limit int) ([]*db.Message, error) {
-	return m.messages, nil
+	messages, _ := m.messages[threadID]
+	return messages, nil
 }
 
-func (m *Mock) CreateThread(thread *db.Thread) error {
+func (m *Mock) UpsertThread(thread *db.Thread) error {
+	for i, t := range m.threads {
+		if t.ID == thread.ID {
+			m.threads[i] = thread
+			return nil
+		}
+	}
 	m.threads = append(m.threads, thread)
+	m.messages[thread.ID] = []*db.Message{}
 	return nil
 }
 
@@ -63,6 +77,8 @@ func (m *Mock) DeleteAllThreads() error {
 }
 
 func (m *Mock) CreateMessage(message *db.Message) error {
-	m.messages = append(m.messages, message)
+	if msgs, ok := m.messages[message.ThreadID]; ok {
+		m.messages[message.ThreadID] = append(msgs, message)
+	}
 	return nil
 }

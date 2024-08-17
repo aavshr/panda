@@ -1,9 +1,10 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"slices"
-	"strings"
 	"time"
 
 	"github.com/aavshr/panda/internal/db"
@@ -18,7 +19,7 @@ func (m *Model) handleKeyMsg(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "j", "up":
 		switch m.selectedComponent {
 		case components.ComponentChatInput:
-			m.setSelectedComponent(components.ComponentMessages)
+			m.setSelectedComponent(components.ComponentHistory)
 		}
 	case "k", "down":
 		switch m.selectedComponent {
@@ -91,17 +92,13 @@ func (m *Model) createNewThread(name string) (*db.Thread, error) {
 	return thread, nil
 }
 
-func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) error {
-	msg.Value = strings.TrimSpace(msg.Value)
-	if msg.Value == "" {
-		return nil
-	}
+func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) tea.Cmd {
 	if m.activeThreadIndex >= len(m.threads) {
-		return fmt.Errorf("invalid active thread index")
+		return m.cmdError(fmt.Errorf("invalid active thread index"))
 	}
 
-	// TODO: send API request
-	// TODO: use thread name from api response
+	// TODO: use llm to generate thread name as well
+
 	// TODO: more robust behavior for thread creation
 	// first thread is always for new thread
 	if m.activeThreadIndex == 0 {
@@ -112,23 +109,36 @@ func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) erro
 		name := fmt.Sprintf("%s..", msg.Value[:n])
 		newThread, err := m.createNewThread(name)
 		if err != nil {
-			return err
+			return m.cmdError(fmt.Errorf("createNewThread: %w", err))
 		}
 		m.setThreads(slices.Insert(m.threads, 1, newThread))
 		m.setActiveThreadIndex(1)
 	}
 	activeThread := m.threads[m.activeThreadIndex]
-	message := &db.Message{
-		Role:      "user",
+	userMessage := &db.Message{
+		Role:      roleUser,
 		ThreadID:  activeThread.ID,
 		Content:   msg.Value,
 		CreatedAt: time.Now().Format(timeFormat),
 	}
-	if err := m.store.CreateMessage(message); err != nil {
-		return err
+	if err := m.store.CreateMessage(userMessage); err != nil {
+		return m.cmdError(fmt.Errorf("store.CreateMessage: %w", err))
 	}
-	m.setMessages(append(m.messages, message))
-	return nil
+	m.setMessages(append(m.messages, userMessage))
+	// TODO: history?
+	reader, err := m.llm.CreateChatCompletionStream(msg.Value, activeThread.ID)
+	if err != nil {
+		return m.cmdError(fmt.Errorf("llm.CreateChatCompletionStream: %w", err))
+	}
+	m.activeLLMStream = reader
+
+	// placeholder empty llm message for stream to update as data rolls in
+	// message will only be saved to db when stream is done
+	m.setMessages(append(m.messages, &db.Message{
+		Role:     roleAssistant,
+		ThreadID: activeThread.ID,
+	}))
+	return m.cmdForwardChatCompletionStream
 }
 
 func (m *Model) handleEscapeMsg() {
@@ -143,7 +153,7 @@ func (m *Model) handleEscapeMsg() {
 	}
 }
 
-func (m *Model) handleListEnterMsg(msg components.ListEnterMsg) error {
+func (m *Model) handleListEnterMsg(msg components.ListEnterMsg) tea.Cmd {
 	switch m.focusedComponent {
 	case components.ComponentHistory:
 		m.setActiveThreadIndex(msg.Index)
@@ -155,16 +165,72 @@ func (m *Model) handleListEnterMsg(msg components.ListEnterMsg) error {
 			return nil
 		}
 		if len(m.threads) == 0 || msg.Index >= len(m.threads) {
-			return fmt.Errorf("invalid thread index")
+			return m.cmdError(fmt.Errorf("invalid thread index"))
 		}
 		threadId := m.threads[msg.Index].ID
 		messages, err := m.store.ListMessagesByThreadIDPaginated(threadId, 0, m.conf.MessagesLimit)
 		if err != nil {
-			return err
+			return m.cmdError(err)
 		}
 		m.setMessages(messages)
 	// TODO: how should we handle selecting a message?
 	case components.ComponentMessages:
 	}
 	return nil
+}
+
+func (m *Model) handleForwardChatCompletionStreamMsg(msg ForwardChatCompletionStreamMsg) tea.Cmd {
+	if m.activeThreadIndex >= len(m.threads) {
+		return m.cmdError(fmt.Errorf("invalid active thread index"))
+	}
+	activeThreadId := m.threads[m.activeThreadIndex].ID
+	llmMessageIndex := len(m.messages) - 1
+	if llmMessageIndex == 0 {
+		return m.cmdError(fmt.Errorf("bad llm message index: 0, should be at least 1"))
+	}
+	content := m.messages[llmMessageIndex].Content
+	createdAt := m.messages[llmMessageIndex].CreatedAt
+
+	// TODO: what buffer size makes it look smooth?
+	buffer := make([]byte, 8)
+
+	streamDone := false
+	n, err := m.activeLLMStream.Read(buffer)
+
+	if err != nil {
+		// stream is done save message to db
+		if !errors.Is(err, io.EOF) {
+			return m.cmdError(fmt.Errorf("activeLLMStream.Read: %w", err))
+		} else {
+			streamDone = true
+		}
+	}
+	if n == 0 && !streamDone {
+		return m.cmdError(fmt.Errorf("activeLLMStream.Read: no bytes read"))
+	}
+	if n > 0 {
+		content = fmt.Sprintf("%s%s", content, string(buffer[:n]))
+		// upate created at as soon as first bytes are read
+		if createdAt == "" {
+			createdAt = time.Now().Format(timeFormat)
+		}
+	}
+	updatedLLMMessage := &db.Message{
+		Role:      roleAssistant,
+		Content:   content,
+		CreatedAt: createdAt,
+		ThreadID:  activeThreadId,
+	}
+	m.messages[llmMessageIndex] = updatedLLMMessage
+	setItemCmd := m.messagesModel.SetItem(
+		llmMessageIndex,
+		components.NewMessageListItem(updatedLLMMessage),
+	)
+	if streamDone {
+		if err := m.store.CreateMessage(updatedLLMMessage); err != nil {
+			return m.cmdError(fmt.Errorf("store.CreateMessage: %w", err))
+		}
+		return setItemCmd
+	}
+	return tea.Batch(setItemCmd, m.cmdForwardChatCompletionStream)
 }

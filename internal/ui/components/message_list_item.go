@@ -19,6 +19,9 @@ func (t *MessageListItem) Title() string {
 }
 
 func (t *MessageListItem) Description() string {
+	if t.message.Role == "" || t.message.CreatedAt == "" {
+		return ""
+	}
 	role := "You"
 	if t.message.Role == "assistant" {
 		role = "AI"
@@ -52,6 +55,12 @@ func (d *MessageListItemDelegate) Spacing() int {
 func (t *MessageListItemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 	// TODO: implement
 	return nil
+}
+
+func NewMessageListItem(message *db.Message) *MessageListItem {
+	return &MessageListItem{
+		message: message,
+	}
 }
 
 func NewMessageListItems(messages []*db.Message) []list.Item {

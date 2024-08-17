@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"io"
 
 	"github.com/aavshr/panda/internal/db"
 	"github.com/aavshr/panda/internal/ui/components"
@@ -27,6 +28,9 @@ const (
 	titleHistory          = "History"
 	timeFormat            = "2006-01-02 15:04:05"
 	newThreadName         = "New"
+	roleUser              = "user"
+	roleAssistant         = "assistant"
+	roleSystem            = "system"
 )
 
 type Config struct {
@@ -35,12 +39,14 @@ type Config struct {
 	MessagesLimit    int
 	Width            int
 	Height           int
-	historyWidth     int
-	historyHeight    int
-	messagesWidth    int
-	messagesHeight   int
-	chatInputWidth   int
-	chatInputHeight  int
+	LLMModel         string
+
+	historyWidth    int
+	historyHeight   int
+	messagesWidth   int
+	messagesHeight  int
+	chatInputWidth  int
+	chatInputHeight int
 }
 
 type Model struct {
@@ -54,8 +60,9 @@ type Model struct {
 	threadsOffset     int
 	activeThreadIndex int
 
-	messages       []*db.Message
-	messagesOffset int
+	messages        []*db.Message
+	messagesOffset  int
+	activeLLMStream io.Reader
 
 	componentsToContainer map[components.Component]lipgloss.Style
 	focusedComponent      components.Component
@@ -67,7 +74,7 @@ type Model struct {
 	errorState error
 }
 
-func New(conf *Config, store store.Store) (*Model, error) {
+func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 	if conf.Width == 0 || conf.Height == 0 {
 		return nil, fmt.Errorf("invalid config: width and height must be greater than 0")
 	}
@@ -81,6 +88,7 @@ func New(conf *Config, store store.Store) (*Model, error) {
 	m := &Model{
 		conf:  conf,
 		store: store,
+		llm:   llm,
 	}
 
 	m.activeThreadIndex = 0
@@ -198,15 +206,13 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case components.ChatInputReturnMsg:
-		if err := m.handleChatInputReturnMsg(msg); err != nil {
-			return m, m.cmdError(err)
-		}
-		// TODO: populate history with messages
-		return m, m.cmdCreateChatCompletionStream(msg.Value, []string{})
+		cmd = m.handleChatInputReturnMsg(msg)
 	case components.EscapeMsg:
 		m.handleEscapeMsg()
 	case components.ListEnterMsg:
-		m.handleListEnterMsg(msg)
+		cmd = m.handleListEnterMsg(msg)
+	case ForwardChatCompletionStreamMsg:
+		cmd = m.handleForwardChatCompletionStreamMsg(msg)
 	case error:
 		m.errorState = msg
 	}

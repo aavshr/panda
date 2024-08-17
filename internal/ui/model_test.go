@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/aavshr/panda/internal/db"
+	"github.com/aavshr/panda/internal/ui/llm"
 	"github.com/aavshr/panda/internal/ui/store"
 	"golang.org/x/term"
 )
@@ -41,6 +42,7 @@ func TestModel_View(t *testing.T) {
 	}
 
 	mockStore := store.NewMock(testThreads, testMessages)
+	mockLLM := llm.NewMock()
 
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -53,7 +55,7 @@ func TestModel_View(t *testing.T) {
 		MessagesLimit:    50,
 		Width:            width - 10,
 		Height:           height - 10,
-	}, mockStore)
+	}, mockStore, mockLLM)
 	_ = m.Init()
 	fmt.Println(m.View())
 }

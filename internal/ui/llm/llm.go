@@ -16,10 +16,10 @@ func NewMock() *Mock {
 	return &Mock{}
 }
 
-func (m *Mock) CreateChatCompletion(input string, model string) (string, error) {
+func (m *Mock) CreateChatCompletion(model, input string) (string, error) {
 	return "this is a mock AI response", nil
 }
 
-func (m *Mock) CreateChatCompletionStream(input string, model string) (io.Reader, error) {
-	return strings.NewReader("this is a mock AI response"), nil
+func (m *Mock) CreateChatCompletionStream(model, input string) (io.Reader, error) {
+	return strings.NewReader("this is a mock AI response.\nwith a new line."), nil
 }

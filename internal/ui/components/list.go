@@ -59,8 +59,12 @@ func (m *ListModel) Select(i int) {
 	m.inner.Select(i)
 }
 
-func (m *ListModel) SetItems(items []list.Item) {
-	m.inner.SetItems(items)
+func (m *ListModel) SetItems(items []list.Item) tea.Cmd {
+	return m.inner.SetItems(items)
+}
+
+func (m *ListModel) SetItem(index int, item list.Item) tea.Cmd {
+	return m.inner.SetItem(index, item)
 }
 
 func (m *ListModel) View() string {

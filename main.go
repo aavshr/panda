@@ -2,14 +2,16 @@ package main
 
 import (
 	_ "embed"
+	"log"
+	"os"
+
 	"github.com/aavshr/panda/internal/db"
+	"github.com/aavshr/panda/internal/llm/openai"
 	"github.com/aavshr/panda/internal/ui"
-	"github.com/aavshr/panda/internal/ui/llm"
+	//"github.com/aavshr/panda/internal/ui/llm"
 	"github.com/aavshr/panda/internal/ui/store"
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/term"
-	"log"
-	"os"
 	//"log"
 	//"os"
 	//"strings"
@@ -97,7 +99,8 @@ func main() {
 	}
 
 	mockStore := store.NewMock(testThreads, testMessages)
-	mockLLM := llm.NewMock()
+	//mockLLM := llm.NewMock()
+	openaiLLM := openai.New("")
 
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
 	if err != nil {
@@ -109,7 +112,7 @@ func main() {
 		MaxThreadsLimit:  100,
 		Width:            width - 10,
 		Height:           height - 10,
-	}, mockStore, mockLLM)
+	}, mockStore, openaiLLM)
 	if err != nil {
 		log.Fatal("ui.New: ", err)
 	}

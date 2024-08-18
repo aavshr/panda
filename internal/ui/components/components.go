@@ -10,6 +10,7 @@ const (
 	ComponentHistory   Component = "history"
 	ComponentMessages  Component = "messages"
 	ComponentChatInput Component = "chatInput"
+	ComponentSettings  Component = "settings"
 	ComponentNone      Component = "none" // utility component
 )
 

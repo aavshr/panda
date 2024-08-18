@@ -1,6 +1,6 @@
 local-build:
 	go build -o panda
 
-local-run: build
+local-run: local-build
 	-./panda
 	rm ./panda

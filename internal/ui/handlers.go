@@ -12,6 +12,7 @@ import (
 	"github.com/aavshr/panda/internal/ui/styles"
 	"github.com/aavshr/panda/internal/utils"
 	tea "github.com/charmbracelet/bubbletea"
+	"golang.design/x/clipboard"
 )
 
 func (m *Model) handleKeyMsg(keyMsg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -170,6 +171,14 @@ func (m *Model) handleListEnterMsg(msg components.ListEnterMsg) tea.Cmd {
 		m.setSelectedComponent(components.ComponentMessages)
 		m.setFocusedComponent(components.ComponentMessages)
 	case components.ComponentMessages:
+		// TODO: how to convey to the user that the message is copied or there was an error
+		if err := clipboard.Init(); err == nil {
+			if msg.Index >= len(m.messages) {
+				return m.cmdError(fmt.Errorf("invalid message index"))
+			}
+			message := m.messages[msg.Index].Content
+			clipboard.Write(clipboard.FmtText, []byte(message))
+		}
 	}
 	return nil
 }

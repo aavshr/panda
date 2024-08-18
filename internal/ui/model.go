@@ -134,7 +134,6 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 		components.ComponentMessages:  messagesContainer,
 		components.ComponentChatInput: chatInputContainer,
 	}
-
 	return m, nil
 }
 

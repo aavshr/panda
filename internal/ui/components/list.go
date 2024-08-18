@@ -101,7 +101,10 @@ func (m *ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 		case tea.KeyEscape:
 			return *m, EscapeCmd
 		case tea.KeyEnter:
-			return *m, ListEnterCmd(m.inner.Index())
+			index := m.inner.Index()
+			if index >= 0 {
+				return *m, ListEnterCmd(m.inner.Index())
+			}
 		}
 		if key.Matches(msg, m.inner.KeyMap.CursorUp) || key.Matches(msg, m.inner.KeyMap.CursorDown) {
 			return *m, ListSelectCmd(m.inner.Index())

@@ -1,12 +1,14 @@
 package ui
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
 	"slices"
 	"time"
 
+	"github.com/aavshr/panda/internal/config"
 	"github.com/aavshr/panda/internal/db"
 	"github.com/aavshr/panda/internal/ui/components"
 	"github.com/aavshr/panda/internal/ui/styles"
@@ -95,6 +97,21 @@ func (m *Model) createNewThread(name string) (*db.Thread, error) {
 	return thread, nil
 }
 
+func (m *Model) handleSettingsSubmitMsg(msg components.SettingsSubmitMsg) tea.Cmd {
+	savedConfig, err := config.Save(config.Config{
+		LLMAPIKey: msg.APIKey,
+	})
+	if err != nil {
+		return m.cmdError(fmt.Errorf("config.Save: %w", err))
+	}
+	if err := m.llm.SetAPIKey(msg.APIKey); err != nil {
+		return m.cmdError(fmt.Errorf("llm.SetAPIKey: %w", err))
+	}
+	m.showSettings = false
+	m.userConfig = savedConfig
+	return m.Init()
+}
+
 func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) tea.Cmd {
 	if m.activeThreadIndex >= len(m.threads) {
 		return m.cmdError(fmt.Errorf("invalid active thread index"))
@@ -129,7 +146,8 @@ func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) tea.
 	}
 	m.setMessages(append(m.messages, userMessage))
 	// TODO: history?
-	reader, err := m.llm.CreateChatCompletionStream(msg.Value, activeThread.ID)
+	reader, err := m.llm.CreateChatCompletionStream(context.Background(),
+		m.userConfig.LLMModel, msg.Value)
 	if err != nil {
 		return m.cmdError(fmt.Errorf("llm.CreateChatCompletionStream: %w", err))
 	}
@@ -203,7 +221,7 @@ func (m *Model) handleListSelectMsg(msg components.ListSelectMsg) tea.Cmd {
 	return nil
 }
 
-func (m *Model) handleForwardChatCompletionStreamMsg(msg ForwardChatCompletionStreamMsg) tea.Cmd {
+func (m *Model) handleForwardChatCompletionStreamMsg(_ ForwardChatCompletionStreamMsg) tea.Cmd {
 	if m.activeThreadIndex >= len(m.threads) {
 		return m.cmdError(fmt.Errorf("invalid active thread index"))
 	}
@@ -216,22 +234,22 @@ func (m *Model) handleForwardChatCompletionStreamMsg(msg ForwardChatCompletionSt
 	createdAt := m.messages[llmMessageIndex].CreatedAt
 
 	// TODO: what buffer size makes it look smooth?
-	buffer := make([]byte, 8)
+	buffer := make([]byte, 16)
 
 	streamDone := false
 	n, err := m.activeLLMStream.Read(buffer)
-
 	if err != nil {
-		// stream is done save message to db
 		if !errors.Is(err, io.EOF) {
 			return m.cmdError(fmt.Errorf("activeLLMStream.Read: %w", err))
-		} else {
-			streamDone = true
 		}
+		streamDone = true
+		m.activeLLMStream.Close()
 	}
-	if n == 0 && !streamDone {
-		return m.cmdError(fmt.Errorf("activeLLMStream.Read: no bytes read"))
-	}
+	/*
+		if n == 0 && !streamDone {
+			return m.cmdError(fmt.Errorf("activeLLMStream.Read: no bytes read"))
+		}
+	*/
 	if n > 0 {
 		content = fmt.Sprintf("%s%s", content, string(buffer[:n]))
 		// upate created at as soon as first bytes are read

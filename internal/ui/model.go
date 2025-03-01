@@ -1,9 +1,11 @@
 package ui
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
+	"github.com/aavshr/panda/internal/config"
 	"github.com/aavshr/panda/internal/db"
 	"github.com/aavshr/panda/internal/ui/components"
 	"github.com/aavshr/panda/internal/ui/llm"
@@ -50,11 +52,14 @@ type Config struct {
 }
 
 type Model struct {
-	conf *Config
+	conf         *Config
+	userConfig   *config.Config
+	showSettings bool
 
 	messagesModel  components.ListModel
 	historyModel   components.ListModel
 	chatInputModel components.ChatInputModel
+	settingsModel  components.SettingsModel
 
 	threads           []*db.Thread
 	threadsOffset     int
@@ -62,7 +67,7 @@ type Model struct {
 
 	messages        []*db.Message
 	messagesOffset  int
-	activeLLMStream io.Reader
+	activeLLMStream io.ReadCloser
 
 	componentsToContainer map[components.Component]lipgloss.Style
 	focusedComponent      components.Component
@@ -90,6 +95,19 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 		store: store,
 		llm:   llm,
 	}
+	m.settingsModel = components.NewSettingsModel()
+	userConfig, err := config.Load()
+	if err != nil {
+		if !errors.Is(err, config.ErrConfigNotFound) {
+			return m, fmt.Errorf("config.Load %w", err)
+		}
+		m.showSettings = true
+	} else {
+		m.userConfig = userConfig
+		if err := m.llm.SetAPIKey(m.userConfig.LLMAPIKey); err != nil {
+			return m, fmt.Errorf("llm.SetAPIKey %w", err)
+		}
+	}
 
 	m.activeThreadIndex = 0
 	m.threads = []*db.Thread{
@@ -109,26 +127,36 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 
 	containerPaddingHeight := 18
 	containerPaddingWidth := 10
-	m.historyModel = components.NewListModel(
-		titleHistory,
-		components.NewThreadListItems(m.threads),
-		conf.historyWidth-containerPaddingWidth,
-		conf.historyHeight-containerPaddingHeight,
-	)
+	m.historyModel = components.NewListModel(&components.NewListModelInput{
+		Title:                  titleHistory,
+		Items:                  components.NewThreadListItems(m.threads),
+		Width:                  conf.historyWidth - containerPaddingWidth,
+		Height:                 conf.historyHeight - containerPaddingHeight,
+		Delegate:               components.NewThreadListItemDelegate(),
+		AllowInfiniteScrolling: false,
+	})
 	m.historyModel.Select(0) // New Thread is selected by default
 
-	m.messagesModel = components.NewListModel(
-		titleMessages,
-		components.NewMessageListItems(m.messages),
-		conf.messagesWidth-containerPaddingWidth,
-		conf.messagesHeight-containerPaddingHeight,
-	)
+	m.messagesModel = components.NewListModel(&components.NewListModelInput{
+		Title:                  titleMessages,
+		Items:                  components.NewMessageListItems(m.messages),
+		Width:                  conf.messagesWidth - containerPaddingWidth,
+		Height:                 conf.messagesHeight - containerPaddingHeight,
+		Delegate:               components.NewMessageListItemDelegate(),
+		AllowInfiniteScrolling: false,
+	})
 	m.chatInputModel = components.NewChatInputModel(conf.chatInputWidth, conf.chatInputHeight)
 
-	container := styles.ContainerStyle()
-	historyContainer := container.Copy().Width(m.conf.historyWidth).Height(m.conf.historyHeight)
-	messagesContainer := container.Copy().Width(m.conf.messagesWidth).Height(m.conf.messagesHeight)
-	chatInputContainer := container.Copy().Width(m.conf.chatInputWidth).Height(m.conf.chatInputHeight)
+	listContainer := styles.ListContainerStyle()
+	historyContainer := listContainer.Copy().
+		Width(m.conf.historyWidth).
+		Height(m.conf.historyHeight)
+	messagesContainer := listContainer.Copy().
+		Width(m.conf.messagesWidth).
+		Height(m.conf.messagesHeight)
+	chatInputContainer := styles.ContainerStyle().
+		Width(m.conf.chatInputWidth).
+		Height(m.conf.chatInputHeight)
 	m.componentsToContainer = map[components.Component]lipgloss.Style{
 		components.ComponentHistory:   historyContainer,
 		components.ComponentMessages:  messagesContainer,
@@ -154,6 +182,12 @@ func (m *Model) setActiveThreadIndex(index int) {
 }
 
 func (m *Model) Init() tea.Cmd {
+	if m.showSettings {
+		m.focusedComponent = components.ComponentSettings
+		m.selectedComponent = components.ComponentSettings
+		return m.settingsModel.Focus()
+	}
+	m.settingsModel.Blur()
 	m.focusedComponent = components.ComponentChatInput
 	m.selectedComponent = components.ComponentChatInput
 	return tea.Batch(
@@ -164,6 +198,9 @@ func (m *Model) Init() tea.Cmd {
 func (m *Model) View() string {
 	if m.errorState != nil {
 		return fmt.Sprintf("Error: %v", m.errorState)
+	}
+	if m.showSettings {
+		return m.settingsModel.View()
 	}
 
 	mainContainer := styles.MainContainerStyle()
@@ -181,7 +218,10 @@ func (m *Model) View() string {
 			lipgloss.JoinHorizontal(
 				lipgloss.Top,
 				m.componentsToContainer[components.ComponentHistory].Render(m.historyModel.View()),
-				m.componentsToContainer[components.ComponentMessages].Render(m.messagesModel.View()),
+				m.componentsToContainer[components.ComponentMessages].Render(
+					// the inner container is to enforce max height on the messages list
+					styles.InnerContainerStyle().MaxHeight(m.conf.messagesHeight).Render(m.messagesModel.View()),
+				),
 			),
 			lipgloss.JoinVertical(
 				lipgloss.Left,
@@ -194,6 +234,8 @@ func (m *Model) View() string {
 func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	switch m.focusedComponent {
+	case components.ComponentSettings:
+		m.settingsModel, cmd = m.settingsModel.Update(msg)
 	case components.ComponentHistory:
 		m.historyModel, cmd = m.historyModel.Update(msg)
 	case components.ComponentMessages:
@@ -208,6 +250,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	switch msg := msg.(type) {
+	case components.SettingsSubmitMsg:
+		cmd = m.handleSettingsSubmitMsg(msg)
 	case components.ChatInputReturnMsg:
 		cmd = m.handleChatInputReturnMsg(msg)
 	case components.EscapeMsg:

@@ -8,6 +8,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+const (
+	valueQuit = "quit"
+	valueExit = "exit"
+)
+
 type ChatInputReturnMsg struct {
 	Value string
 }
@@ -26,7 +31,7 @@ func NewChatInputModel(width, height int) ChatInputModel {
 	inner.Prompt = ""
 
 	inner.KeyMap.InsertNewline.SetEnabled(true)
-	inner.Cursor.SetMode(cursor.CursorStatic)
+	inner.Cursor.SetMode(cursor.CursorBlink)
 
 	return ChatInputModel{
 		inner: inner,
@@ -66,6 +71,10 @@ func (c *ChatInputModel) Update(msg tea.Msg) (ChatInputModel, tea.Cmd) {
 			return *c, tea.Quit
 		case tea.KeyTab:
 			value := strings.TrimSpace(c.inner.Value())
+			if strings.ToLower(value) == valueQuit || strings.ToLower(value) == valueExit {
+				return *c, tea.Quit
+			}
+
 			if value != "" {
 				c.inner.Reset()
 				return *c, c.EnterCmd(value)

@@ -1,13 +1,15 @@
 package llm
 
 import (
+	"context"
 	"io"
 	"strings"
 )
 
 type LLM interface {
-	CreateChatCompletion(string, string) (string, error)
-	CreateChatCompletionStream(string, string) (io.Reader, error)
+	CreateChatCompletion(context.Context, string, string) (string, error)
+	CreateChatCompletionStream(context.Context, string, string) (io.ReadCloser, error)
+	SetAPIKey(string) error
 }
 
 type Mock struct{}
@@ -16,10 +18,14 @@ func NewMock() *Mock {
 	return &Mock{}
 }
 
-func (m *Mock) CreateChatCompletion(model, input string) (string, error) {
+func (m *Mock) CreateChatCompletion(ctx context.Context, model, input string) (string, error) {
 	return "this is a mock AI response", nil
 }
 
-func (m *Mock) CreateChatCompletionStream(model, input string) (io.Reader, error) {
-	return strings.NewReader("this is a mock AI response.\nwith a new line."), nil
+func (m *Mock) CreateChatCompletionStream(ctx context.Context, model, input string) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("this is a mock AI response.\nwith a new line.")), nil
+}
+
+func (m *Mock) SetAPIKey(string) error {
+	return nil
 }

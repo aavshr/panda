@@ -11,6 +11,10 @@ const (
 	ListItemColor          = lipgloss.Color("#c6d8d3")
 	ListItemSecondaryColor = lipgloss.Color("#fdf0d5")
 	DescriptionColor       = lipgloss.Color("#d81e5b")
+	UserMessageColor       = lipgloss.Color("#5fafaf")
+	AIMessageColor         = lipgloss.Color("#00afff")
+	MetadataColor          = lipgloss.Color("#626262")
+	messagesLeftPadding    = 2
 )
 
 func MainContainerStyle() lipgloss.Style {
@@ -19,10 +23,21 @@ func MainContainerStyle() lipgloss.Style {
 	return s
 }
 
+func ListContainerStyle() lipgloss.Style {
+	s := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder(), true)
+	return s
+}
+
 func ContainerStyle() lipgloss.Style {
 	s := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder(), true)
 	return s
+}
+
+func InnerContainerStyle() lipgloss.Style {
+	return lipgloss.NewStyle().Padding(0)
+
 }
 
 func SetNormalBorder(s *lipgloss.Style) {
@@ -72,5 +87,28 @@ func DefaultListItemStyle() lipgloss.Style {
 func DefaultListItemSecondaryStyle() lipgloss.Style {
 	s := lipgloss.NewStyle().
 		Foreground(ListItemSecondaryColor)
+	return s
+}
+
+func leftPaddedStyle(padding int) lipgloss.Style {
+	return lipgloss.NewStyle().PaddingLeft(padding)
+}
+
+func UserMessageStyle() lipgloss.Style {
+	s := leftPaddedStyle(messagesLeftPadding).
+		Foreground(UserMessageColor)
+	return s
+}
+
+func AIMessageStyle() lipgloss.Style {
+	s := leftPaddedStyle(messagesLeftPadding).
+		Foreground(AIMessageColor)
+	return s
+}
+
+func MetadataStyle() lipgloss.Style {
+	s := leftPaddedStyle(messagesLeftPadding).
+		Foreground(MetadataColor).
+		Italic(true)
 	return s
 }

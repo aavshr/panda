@@ -5,11 +5,14 @@ import (
 	"io"
 
 	"github.com/aavshr/panda/internal/db"
+	"github.com/aavshr/panda/internal/ui/styles"
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 )
 
-// MessageListItem implements the list.Item, list.DefaultItem and list.ItemDelegate interface
+// MessageListItem implements the list.Item, list.DefaultItem interface
 type MessageListItem struct {
 	message *db.Message
 }
@@ -33,27 +36,46 @@ func (t *MessageListItem) FilterValue() string {
 	return t.Title()
 }
 
+// MessageListItemDelegate implements list.ItemDelegate interface
 type MessageListItemDelegate struct {
-	inner list.DefaultDelegate
+	userStyle lipgloss.Style
+	aiStyle   lipgloss.Style
+	metaStyle lipgloss.Style
 }
 
-// TODO: different rendering for different roles
 func (d *MessageListItemDelegate) Render(w io.Writer, m list.Model, index int, item list.Item) {
-	d.inner.Render(w, m, index, item)
+	messageItem, ok := item.(*MessageListItem)
+	if !ok {
+		return
+	}
+
+	contentWidth := m.Width() - 4 // account for padding
+
+	var contentStyle lipgloss.Style
+	if messageItem.message.Role == "assistant" {
+		contentStyle = d.aiStyle
+	} else {
+		contentStyle = d.userStyle
+	}
+
+	content := wordwrap.String(messageItem.Title(), contentWidth)
+	meta := d.metaStyle.Render(messageItem.Description())
+
+	fmt.Fprintln(w, contentStyle.Render(content))
+	fmt.Fprintln(w, meta)
+
+	fmt.Fprintln(w)
 }
 
 func (d *MessageListItemDelegate) Height() int {
-	// TODO: implement
-	return 1
+	return 2 + d.Spacing() // Minimum for content + metadata + spacing
 }
 
 func (d *MessageListItemDelegate) Spacing() int {
-	//TODO: implement
-	return 1
+	return 0
 }
 
-func (t *MessageListItemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
-	// TODO: implement
+func (d *MessageListItemDelegate) Update(msg tea.Msg, m *list.Model) tea.Cmd {
 	return nil
 }
 
@@ -73,8 +95,11 @@ func NewMessageListItems(messages []*db.Message) []list.Item {
 	return items
 }
 
+// NewMessageListItemDelegate maintains the existing API while enhancing functionality
 func NewMessageListItemDelegate() list.ItemDelegate {
 	return &MessageListItemDelegate{
-		inner: list.NewDefaultDelegate(),
+		userStyle: styles.UserMessageStyle(),
+		aiStyle:   styles.AIMessageStyle(),
+		metaStyle: styles.MetadataStyle(),
 	}
 }

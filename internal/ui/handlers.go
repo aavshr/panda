@@ -221,7 +221,7 @@ func (m *Model) handleListSelectMsg(msg components.ListSelectMsg) tea.Cmd {
 	return nil
 }
 
-func (m *Model) handleForwardChatCompletionStreamMsg(msg ForwardChatCompletionStreamMsg) tea.Cmd {
+func (m *Model) handleForwardChatCompletionStreamMsg(_ ForwardChatCompletionStreamMsg) tea.Cmd {
 	if m.activeThreadIndex >= len(m.threads) {
 		return m.cmdError(fmt.Errorf("invalid active thread index"))
 	}

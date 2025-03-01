@@ -37,23 +37,33 @@ type ListModel struct {
 	inner list.Model
 }
 
-func NewListModel(title string, items []list.Item, width, height int) ListModel {
-	model := list.New(items, NewMessageListItemDelegate(), width, height)
-	model.Title = title
+type NewListModelInput struct {
+	Title                  string
+	Items                  []list.Item
+	Width                  int
+	Height                 int
+	AllowInfiniteScrolling bool
+	Delegate               list.ItemDelegate
+}
+
+func NewListModel(i *NewListModelInput) ListModel {
+	model := list.New(i.Items, i.Delegate, i.Width, i.Height)
+	model.Title = i.Title
 	model.Styles.Title = styles.DefaultListStyle()
 	model.SetShowStatusBar(false)
 	model.SetShowHelp(false)
 	model.FilterInput.Blur()
-	//model.InfiniteScrolling = true
 	// no item should be selected by default
 	model.Select(-1)
 	model.Styles.NoItems.Padding(0, 0, 1, 2)
 
 	// TODO: what if title is not plural
-	model.SetStatusBarItemName(strings.TrimSuffix(strings.ToLower(title), "s"), strings.ToLower(title))
+	model.SetStatusBarItemName(strings.TrimSuffix(strings.ToLower(i.Title), "s"), strings.ToLower(i.Title))
 
 	// disable quit key
 	model.KeyMap.Quit.SetEnabled(false)
+
+	model.InfiniteScrolling = i.AllowInfiniteScrolling
 
 	return ListModel{inner: model}
 }

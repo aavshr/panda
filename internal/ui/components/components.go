@@ -7,11 +7,12 @@ import (
 type Component string
 
 const (
-	ComponentHistory   Component = "history"
-	ComponentMessages  Component = "messages"
-	ComponentChatInput Component = "chatInput"
-	ComponentSettings  Component = "settings"
-	ComponentNone      Component = "none" // utility component
+	ComponentHistory       Component = "history"
+	ComponentMessages      Component = "messages"
+	ComponentInnerMessages Component = "innerMessages"
+	ComponentChatInput     Component = "chatInput"
+	ComponentSettings      Component = "settings"
+	ComponentNone          Component = "none" // utility component
 )
 
 type EscapeMsg struct{}

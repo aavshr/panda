@@ -31,7 +31,7 @@ func NewChatInputModel(width, height int) ChatInputModel {
 	inner.Prompt = ""
 
 	inner.KeyMap.InsertNewline.SetEnabled(true)
-	inner.Cursor.SetMode(cursor.CursorStatic)
+	inner.Cursor.SetMode(cursor.CursorBlink)
 
 	return ChatInputModel{
 		inner: inner,

@@ -127,26 +127,36 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 
 	containerPaddingHeight := 18
 	containerPaddingWidth := 10
-	m.historyModel = components.NewListModel(
-		titleHistory,
-		components.NewThreadListItems(m.threads),
-		conf.historyWidth-containerPaddingWidth,
-		conf.historyHeight-containerPaddingHeight,
-	)
+	m.historyModel = components.NewListModel(&components.NewListModelInput{
+		Title:                  titleHistory,
+		Items:                  components.NewThreadListItems(m.threads),
+		Width:                  conf.historyWidth - containerPaddingWidth,
+		Height:                 conf.historyHeight - containerPaddingHeight,
+		Delegate:               components.NewThreadListItemDelegate(),
+		AllowInfiniteScrolling: false,
+	})
 	m.historyModel.Select(0) // New Thread is selected by default
 
-	m.messagesModel = components.NewListModel(
-		titleMessages,
-		components.NewMessageListItems(m.messages),
-		conf.messagesWidth-containerPaddingWidth,
-		conf.messagesHeight-containerPaddingHeight,
-	)
+	m.messagesModel = components.NewListModel(&components.NewListModelInput{
+		Title:                  titleMessages,
+		Items:                  components.NewMessageListItems(m.messages),
+		Width:                  conf.messagesWidth - containerPaddingWidth,
+		Height:                 conf.messagesHeight - containerPaddingHeight,
+		Delegate:               components.NewMessageListItemDelegate(),
+		AllowInfiniteScrolling: false,
+	})
 	m.chatInputModel = components.NewChatInputModel(conf.chatInputWidth, conf.chatInputHeight)
 
-	container := styles.ContainerStyle()
-	historyContainer := container.Copy().Width(m.conf.historyWidth).Height(m.conf.historyHeight)
-	messagesContainer := container.Copy().Width(m.conf.messagesWidth).Height(m.conf.messagesHeight)
-	chatInputContainer := container.Copy().Width(m.conf.chatInputWidth).Height(m.conf.chatInputHeight)
+	listContainer := styles.ListContainerStyle()
+	historyContainer := listContainer.Copy().
+		Width(m.conf.historyWidth).
+		Height(m.conf.historyHeight)
+	messagesContainer := listContainer.Copy().
+		Width(m.conf.messagesWidth).
+		Height(m.conf.messagesHeight)
+	chatInputContainer := styles.ContainerStyle().
+		Width(m.conf.chatInputWidth).
+		Height(m.conf.chatInputHeight)
 	m.componentsToContainer = map[components.Component]lipgloss.Style{
 		components.ComponentHistory:   historyContainer,
 		components.ComponentMessages:  messagesContainer,
@@ -208,7 +218,10 @@ func (m *Model) View() string {
 			lipgloss.JoinHorizontal(
 				lipgloss.Top,
 				m.componentsToContainer[components.ComponentHistory].Render(m.historyModel.View()),
-				m.componentsToContainer[components.ComponentMessages].Render(m.messagesModel.View()),
+				m.componentsToContainer[components.ComponentMessages].Render(
+					// the inner container is to enforce max height on the messages list
+					styles.InnerContainerStyle().MaxHeight(m.conf.messagesHeight).Render(m.messagesModel.View()),
+				),
 			),
 			lipgloss.JoinVertical(
 				lipgloss.Left,

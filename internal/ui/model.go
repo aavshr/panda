@@ -56,7 +56,7 @@ type Model struct {
 	userConfig   *config.Config
 	showSettings bool
 
-	messagesModel  components.ListModel
+	messagesModel  components.ChatModel
 	historyModel   components.ListModel
 	chatInputModel components.ChatInputModel
 	settingsModel  components.SettingsModel
@@ -113,7 +113,7 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 	m.threads = []*db.Thread{
 		{
 			Name: newThreadName,
-			// TODO: not this hack lmao
+			// TODO: not this hack
 			CreatedAt: "Create a new thread..",
 		},
 	}
@@ -125,26 +125,16 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 
 	m.messages = []*db.Message{}
 
-	containerPaddingHeight := 18
-	containerPaddingWidth := 10
 	m.historyModel = components.NewListModel(&components.NewListModelInput{
 		Title:                  titleHistory,
 		Items:                  components.NewThreadListItems(m.threads),
-		Width:                  conf.historyWidth - containerPaddingWidth,
-		Height:                 conf.historyHeight - containerPaddingHeight,
+		Width:                  conf.historyWidth - 18,  // padding
+		Height:                 conf.historyHeight - 10, // padding
 		Delegate:               components.NewThreadListItemDelegate(),
 		AllowInfiniteScrolling: false,
 	})
 	m.historyModel.Select(0) // New Thread is selected by default
-
-	m.messagesModel = components.NewListModel(&components.NewListModelInput{
-		Title:                  titleMessages,
-		Items:                  components.NewMessageListItems(m.messages),
-		Width:                  conf.messagesWidth - containerPaddingWidth,
-		Height:                 conf.messagesHeight - containerPaddingHeight,
-		Delegate:               components.NewMessageListItemDelegate(),
-		AllowInfiniteScrolling: false,
-	})
+	m.messagesModel = components.NewChatModel(conf.messagesWidth, conf.messagesHeight)
 	m.chatInputModel = components.NewChatInputModel(conf.chatInputWidth, conf.chatInputHeight)
 
 	listContainer := styles.ListContainerStyle()
@@ -172,8 +162,18 @@ func (m *Model) setThreads(threads []*db.Thread) {
 
 func (m *Model) setMessages(messages []*db.Message) {
 	m.messages = messages
-	m.messagesModel.SetItems(components.NewMessageListItems(messages))
-	m.messagesModel.GoToLastPage()
+	// TODO: a more efficient way to do this?
+	m.messagesModel.ResetMessages()
+	for _, message := range messages {
+		isUser := message.Role == roleUser
+		m.messagesModel.AddMessage(
+			components.Message{
+				Content:   message.Content,
+				CreatedAt: message.CreatedAt,
+				IsUser:    isUser,
+			},
+		)
+	}
 }
 
 func (m *Model) setActiveThreadIndex(index int) {
@@ -219,8 +219,7 @@ func (m *Model) View() string {
 				lipgloss.Top,
 				m.componentsToContainer[components.ComponentHistory].Render(m.historyModel.View()),
 				m.componentsToContainer[components.ComponentMessages].Render(
-					// the inner container is to enforce max height on the messages list
-					styles.InnerContainerStyle().MaxHeight(m.conf.messagesHeight).Render(m.messagesModel.View()),
+					m.messagesModel.View(),
 				),
 			),
 			lipgloss.JoinVertical(

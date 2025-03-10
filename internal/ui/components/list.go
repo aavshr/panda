@@ -107,7 +107,6 @@ func (m *ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		// TODO: handle enter key
 		case tea.KeyEscape:
 			return *m, EscapeCmd
 		case tea.KeyEnter:

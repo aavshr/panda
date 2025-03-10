@@ -110,7 +110,7 @@ func main() {
 	m, err := ui.New(&ui.Config{
 		InitThreadsLimit: 10,
 		MaxThreadsLimit:  100,
-		Width:            width - 10,
+		Width:            width - 8,
 		Height:           height - 10,
 	}, mockStore, openaiLLM)
 	if err != nil {

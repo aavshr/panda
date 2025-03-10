@@ -70,8 +70,10 @@ func (m *Model) setFocusedComponent(com components.Component) {
 		switch com {
 		case components.ComponentChatInput:
 			m.chatInputModel.Focus()
-		case components.ComponentMessages:
-			m.messagesModel.Focus()
+		/*
+			case components.ComponentMessages:
+				m.messagesModel.Focus()
+		*/
 		case components.ComponentHistory:
 			m.historyModel.Focus()
 			// TODO: check why we need to reslect the activethreadindex
@@ -145,7 +147,7 @@ func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) tea.
 		return m.cmdError(fmt.Errorf("store.CreateMessage: %w", err))
 	}
 	m.setMessages(append(m.messages, userMessage))
-	// TODO: history?
+	// TODO: history
 	reader, err := m.llm.CreateChatCompletionStream(context.Background(),
 		m.userConfig.LLMModel, msg.Value)
 	if err != nil {
@@ -159,6 +161,7 @@ func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) tea.
 		Role:     roleAssistant,
 		ThreadID: activeThread.ID,
 	}))
+	m.messagesModel.ScrollToBottom()
 	return m.cmdForwardChatCompletionStream
 }
 
@@ -167,8 +170,10 @@ func (m *Model) handleEscapeMsg() {
 	switch m.focusedComponent {
 	case components.ComponentChatInput:
 		m.chatInputModel.Blur()
-	case components.ComponentMessages:
-		m.messagesModel.Blur()
+	/*
+		case components.ComponentMessages:
+			m.messagesModel.Blur()
+	*/
 	case components.ComponentHistory:
 		m.historyModel.Blur()
 	}
@@ -234,7 +239,7 @@ func (m *Model) handleForwardChatCompletionStreamMsg(_ ForwardChatCompletionStre
 	createdAt := m.messages[llmMessageIndex].CreatedAt
 
 	// TODO: what buffer size makes it look smooth?
-	buffer := make([]byte, 16)
+	buffer := make([]byte, 64)
 
 	streamDone := false
 	n, err := m.activeLLMStream.Read(buffer)
@@ -245,14 +250,8 @@ func (m *Model) handleForwardChatCompletionStreamMsg(_ ForwardChatCompletionStre
 		streamDone = true
 		m.activeLLMStream.Close()
 	}
-	/*
-		if n == 0 && !streamDone {
-			return m.cmdError(fmt.Errorf("activeLLMStream.Read: no bytes read"))
-		}
-	*/
 	if n > 0 {
 		content = fmt.Sprintf("%s%s", content, string(buffer[:n]))
-		// upate created at as soon as first bytes are read
 		if createdAt == "" {
 			createdAt = time.Now().Format(timeFormat)
 		}
@@ -264,15 +263,16 @@ func (m *Model) handleForwardChatCompletionStreamMsg(_ ForwardChatCompletionStre
 		ThreadID:  activeThreadId,
 	}
 	m.messages[llmMessageIndex] = updatedLLMMessage
-	setItemCmd := m.messagesModel.SetItem(
-		llmMessageIndex,
-		components.NewMessageListItem(updatedLLMMessage),
-	)
+	m.messagesModel.SetMessage(llmMessageIndex, components.Message{
+		Content:   updatedLLMMessage.Content,
+		CreatedAt: updatedLLMMessage.CreatedAt,
+		IsUser:    false,
+	})
 	if streamDone {
 		if err := m.store.CreateMessage(updatedLLMMessage); err != nil {
 			return m.cmdError(fmt.Errorf("store.CreateMessage: %w", err))
 		}
-		return setItemCmd
+		return nil
 	}
-	return tea.Batch(setItemCmd, m.cmdForwardChatCompletionStream)
+	return m.cmdForwardChatCompletionStream
 }

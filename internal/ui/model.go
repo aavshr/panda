@@ -259,6 +259,8 @@ func (m *Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmd = m.handleListEnterMsg(msg)
 	case components.ListSelectMsg:
 		cmd = m.handleListSelectMsg(msg)
+	case components.ListDeleteMsg:
+		cmd = m.handleListDeleteMsg(msg)
 	case ForwardChatCompletionStreamMsg:
 		cmd = m.handleForwardChatCompletionStreamMsg(msg)
 	case error:

@@ -17,6 +17,10 @@ type ListSelectMsg struct {
 	Index int
 }
 
+type ListDeleteMsg struct {
+	Index int
+}
+
 func ListEnterCmd(selectedIndex int) func() tea.Msg {
 	return func() tea.Msg {
 		return ListEnterMsg{
@@ -28,6 +32,14 @@ func ListEnterCmd(selectedIndex int) func() tea.Msg {
 func ListSelectCmd(selectedIndex int) func() tea.Msg {
 	return func() tea.Msg {
 		return ListSelectMsg{
+			Index: selectedIndex,
+		}
+	}
+}
+
+func ListDeleteCmd(selectedIndex int) func() tea.Msg {
+	return func() tea.Msg {
+		return ListDeleteMsg{
 			Index: selectedIndex,
 		}
 	}
@@ -112,7 +124,12 @@ func (m *ListModel) Update(msg tea.Msg) (ListModel, tea.Cmd) {
 		case tea.KeyEnter:
 			index := m.inner.Index()
 			if index >= 0 {
-				return *m, ListEnterCmd(m.inner.Index())
+				return *m, ListEnterCmd(index)
+			}
+		case tea.KeyCtrlD:
+			index := m.inner.Index()
+			if index >= 0 {
+				return *m, ListDeleteCmd(index)
 			}
 		}
 		if key.Matches(msg, m.inner.KeyMap.CursorUp) || key.Matches(msg, m.inner.KeyMap.CursorDown) {

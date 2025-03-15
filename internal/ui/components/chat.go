@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// TODO: use same Message model throughout the app
 type Message struct {
 	Content   string
 	CreatedAt string

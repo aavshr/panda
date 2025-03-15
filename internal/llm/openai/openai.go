@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/aavshr/panda/internal/db"
 	client "github.com/sashabaranov/go-openai"
 )
 
@@ -65,20 +66,28 @@ func (o *OpenAI) SetAPIKey(apiKey string) error {
 	return nil
 }
 
-func (o *OpenAI) CreateChatCompletion(ctx context.Context, model, input string) (string, error) {
+func (o *OpenAI) dbMessagesToClientMessage(messages []*db.Message) []client.ChatCompletionMessage {
+	var clientMessages []client.ChatCompletionMessage
+	for _, m := range messages {
+		m := m
+		clientMessages = append(clientMessages, client.ChatCompletionMessage{
+			Role:    m.Role,
+			Content: m.Content,
+		})
+	}
+	return clientMessages
+}
+
+// TODO: fix coupling with db message
+func (o *OpenAI) CreateChatCompletion(ctx context.Context, model string, messages []*db.Message) (string, error) {
 	if o.apiKey == "" {
 		return "", ErrAPIKeyNotSet
 	}
 	resp, err := o.client.CreateChatCompletion(
 		ctx,
 		client.ChatCompletionRequest{
-			Model: model,
-			Messages: []client.ChatCompletionMessage{
-				{
-					Role:    client.ChatMessageRoleUser,
-					Content: input,
-				},
-			},
+			Model:    model,
+			Messages: o.dbMessagesToClientMessage(messages),
 		},
 	)
 	if err != nil {
@@ -90,19 +99,15 @@ func (o *OpenAI) CreateChatCompletion(ctx context.Context, model, input string) 
 	return resp.Choices[0].Message.Content, nil
 }
 
-func (o *OpenAI) CreateChatCompletionStream(ctx context.Context, model, input string) (io.ReadCloser, error) {
+// TODO: coupling with db.Message
+func (o *OpenAI) CreateChatCompletionStream(ctx context.Context, model string, messages []*db.Message) (io.ReadCloser, error) {
 	if o.apiKey == "" {
 		return nil, ErrAPIKeyNotSet
 	}
 	req := client.ChatCompletionRequest{
-		Model: model,
-		Messages: []client.ChatCompletionMessage{
-			{
-				Role:    client.ChatMessageRoleUser,
-				Content: input,
-			},
-		},
-		Stream: true,
+		Model:    model,
+		Messages: o.dbMessagesToClientMessage(messages),
+		Stream:   true,
 	}
 	stream, err := o.client.CreateChatCompletionStream(ctx, req)
 	if err != nil {

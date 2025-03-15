@@ -146,10 +146,10 @@ func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) tea.
 	if err := m.store.CreateMessage(userMessage); err != nil {
 		return m.cmdError(fmt.Errorf("store.CreateMessage: %w", err))
 	}
-	m.setMessages(append(m.messages, userMessage))
-	// TODO: history
+	messages := append(m.messages, userMessage)
+	m.setMessages(messages)
 	reader, err := m.llm.CreateChatCompletionStream(context.Background(),
-		m.userConfig.LLMModel, msg.Value)
+		m.userConfig.LLMModel, messages)
 	if err != nil {
 		return m.cmdError(fmt.Errorf("llm.CreateChatCompletionStream: %w", err))
 	}

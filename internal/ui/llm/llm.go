@@ -2,13 +2,15 @@ package llm
 
 import (
 	"context"
+	"github.com/aavshr/panda/internal/db"
 	"io"
 	"strings"
 )
 
+// TODO: fix coupling with db message
 type LLM interface {
-	CreateChatCompletion(context.Context, string, string) (string, error)
-	CreateChatCompletionStream(context.Context, string, string) (io.ReadCloser, error)
+	CreateChatCompletion(context.Context, string, []*db.Message) (string, error)
+	CreateChatCompletionStream(context.Context, string, []*db.Message) (io.ReadCloser, error)
 	SetAPIKey(string) error
 }
 

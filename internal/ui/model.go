@@ -126,8 +126,8 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 	m.historyModel = components.NewListModel(&components.NewListModelInput{
 		Title:                  titleHistory,
 		Items:                  components.NewThreadListItems(m.threads),
-		Width:                  conf.historyWidth - 18,  // padding
-		Height:                 conf.historyHeight - 10, // padding
+		Width:                  conf.historyWidth,
+		Height:                 conf.historyHeight,
 		Delegate:               components.NewThreadListItemDelegate(),
 		AllowInfiniteScrolling: false,
 	})

@@ -31,6 +31,14 @@ func GetDir() string {
 	return filepath.Join(configDir, appConfigDir)
 }
 
+func GetDataDir() string {
+	dataDir := xdg.DataHome
+	if dataDir == "" {
+		dataDir = filepath.Join(xdg.Home, ".local", "share")
+	}
+	return filepath.Join(dataDir, appConfigDir)
+}
+
 func GetFilePath() string {
 	configDir := GetDir()
 	return filepath.Join(configDir, configFileName)

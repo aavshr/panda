@@ -121,10 +121,8 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 	if err != nil {
 		return m, fmt.Errorf("store.ListLatestThreadsPaginated %w", err)
 	}
-	m.threads = append(m.threads, threads...)
 
 	m.messages = []*db.Message{}
-
 	m.historyModel = components.NewListModel(&components.NewListModelInput{
 		Title:                  titleHistory,
 		Items:                  components.NewThreadListItems(m.threads),
@@ -133,6 +131,7 @@ func New(conf *Config, store store.Store, llm llm.LLM) (*Model, error) {
 		Delegate:               components.NewThreadListItemDelegate(),
 		AllowInfiniteScrolling: false,
 	})
+	m.setThreads(append(m.threads, threads...))
 	m.historyModel.Select(0) // New Thread is selected by default
 	m.messagesModel = components.NewChatModel(conf.messagesWidth, conf.messagesHeight)
 	m.chatInputModel = components.NewChatInputModel(conf.chatInputWidth, conf.chatInputHeight)

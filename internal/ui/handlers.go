@@ -179,19 +179,11 @@ func (m *Model) handleEscapeMsg() {
 }
 
 func (m *Model) handleListEnterMsg(msg components.ListEnterMsg) tea.Cmd {
-	// TODO: handle entering a message for messages
-	// either copy the entire message or let user copy only specific parts
 	switch m.focusedComponent {
 	case components.ComponentHistory:
-		// first item is always for new thread
-		if msg.Index == 0 {
-			m.setMessages([]*db.Message{})
-			m.setSelectedComponent(components.ComponentChatInput)
-			m.setFocusedComponent(components.ComponentChatInput)
-			return nil
-		}
-		m.setSelectedComponent(components.ComponentMessages)
-		m.setFocusedComponent(components.ComponentMessages)
+		m.setSelectedComponent(components.ComponentChatInput)
+		m.setFocusedComponent(components.ComponentChatInput)
+		return nil
 	}
 	return nil
 }

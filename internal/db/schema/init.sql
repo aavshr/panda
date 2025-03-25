@@ -14,12 +14,12 @@ CREATE TABLE IF NOT EXISTS messages (
     thread_id TEXT REFERENCES threads(id) ON DELETE CASCADE
 );
 
-CREATE VIRTUAL TABLE virtual_thread_names USING fts5(
+CREATE VIRTUAL TABLE IF NOT EXISTS virtual_thread_names USING fts5(
     thread_name,
     thread_id UNINDEXED
 );
 
-CREATE VIRTUAL TABLE virtual_message_content USING fts5(
+CREATE VIRTUAL TABLE IF NOT EXISTS virtual_message_content USING fts5(
     message_content,
     message_id UNINDEXED,
     thread_id UNINDEXED

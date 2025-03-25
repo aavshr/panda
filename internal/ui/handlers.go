@@ -124,7 +124,7 @@ func (m *Model) handleChatInputReturnMsg(msg components.ChatInputReturnMsg) tea.
 	// TODO: more robust behavior for thread creation
 	// first thread is always for new thread
 	if m.activeThreadIndex == 0 {
-		n := 20
+		n := 25
 		if len(msg.Value) < n {
 			n = len(msg.Value)
 		}

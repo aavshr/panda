@@ -1,6 +1,6 @@
-local-build:
-	go build -o panda
+build:
+	go build -o panda --tags "fts5"
 
-local-run: local-build
+run: build
 	-./panda
 	rm ./panda

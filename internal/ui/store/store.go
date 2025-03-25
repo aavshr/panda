@@ -8,7 +8,6 @@ type Store interface {
 	ListLatestThreadsPaginated(offset, limit int) ([]*db.Thread, error)
 	ListMessagesByThreadIDPaginated(threadID string, offset, limit int) ([]*db.Message, error)
 	UpsertThread(thread *db.Thread) error
-	UpdateThreadName(threadID, name string) error
 	DeleteThread(threadID string) error
 	DeleteAllThreads() error
 	CreateMessage(message *db.Message) error

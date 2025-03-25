@@ -5,16 +5,15 @@ import (
 	"log"
 	"os"
 
+	"strings"
+
+	"github.com/aavshr/panda/internal/config"
 	"github.com/aavshr/panda/internal/db"
 	"github.com/aavshr/panda/internal/llm/openai"
 	"github.com/aavshr/panda/internal/ui"
-	//"github.com/aavshr/panda/internal/ui/llm"
 	"github.com/aavshr/panda/internal/ui/store"
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/term"
-	//"log"
-	//"os"
-	//"strings"
 )
 
 //go:embed internal/db/schema/init.sql
@@ -24,35 +23,10 @@ var dbSchemaInit string
 var dbSchemaMigrations string
 
 const (
-	DefaultDataDirPath  = "/.local/share/panda/data"
 	DefaultDatabaseName = "panda.db"
 )
 
-func main() {
-	/*
-		isDev := strings.ToLower(os.Getenv("PANDA_ENV")) == "dev"
-		dataDirPath := DefaultDataDirPath
-		databaseName := DefaultDatabaseName
-		if isDev {
-			devDataDirPath := os.Getenv("PANDA_DATA_DIR_PATH")
-			devDatabaseName := os.Getenv("PANDA_DATABASE_NAME")
-			if devDataDirPath != "" {
-				dataDirPath = devDataDirPath
-			}
-			if devDatabaseName != "" {
-				databaseName = devDatabaseName
-			}
-		}
-
-		_, err := db.New(db.Config{
-			DataDirPath: dataDirPath,
-			DatabaseName: databaseName,
-		}, &dbSchemaInit, &dbSchemaMigrations)
-		if err != nil {
-			log.Fatal("failed to initialize db: ", err)
-		}
-	*/
-
+func initMockStore() *store.Mock {
 	testThreads := []*db.Thread{
 		{
 			ID:        "1",
@@ -98,8 +72,32 @@ func main() {
 		},
 	}
 
-	mockStore := store.NewMock(testThreads, testMessages)
-	//mockLLM := llm.NewMock()
+	return store.NewMock(testThreads, testMessages)
+}
+
+func main() {
+	isDev := strings.ToLower(os.Getenv("PANDA_ENV")) == "dev"
+	dataDirPath := config.GetDataDir()
+	databaseName := DefaultDatabaseName
+	if isDev {
+		devDataDirPath := os.Getenv("PANDA_DATA_DIR_PATH")
+		devDatabaseName := os.Getenv("PANDA_DATABASE_NAME")
+		if devDataDirPath != "" {
+			dataDirPath = devDataDirPath
+		}
+		if devDatabaseName != "" {
+			databaseName = devDatabaseName
+		}
+	}
+
+	dbStore, err := db.New(db.Config{
+		DataDirPath:  dataDirPath,
+		DatabaseName: databaseName,
+	}, &dbSchemaInit, &dbSchemaMigrations)
+	if err != nil {
+		log.Fatal("failed to initialize db: ", err)
+	}
+
 	openaiLLM := openai.New("")
 
 	width, height, err := term.GetSize(int(os.Stdout.Fd()))
@@ -110,9 +108,10 @@ func main() {
 	m, err := ui.New(&ui.Config{
 		InitThreadsLimit: 10,
 		MaxThreadsLimit:  100,
+		MessagesLimit:    50,
 		Width:            width - 8,
 		Height:           height - 10,
-	}, mockStore, openaiLLM)
+	}, dbStore, openaiLLM)
 	if err != nil {
 		log.Fatal("ui.New: ", err)
 	}

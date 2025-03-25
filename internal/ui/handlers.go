@@ -101,6 +101,7 @@ func (m *Model) createNewThread(name string) (*db.Thread, error) {
 func (m *Model) handleSettingsSubmitMsg(msg components.SettingsSubmitMsg) tea.Cmd {
 	savedConfig, err := config.Save(config.Config{
 		LLMAPIKey: msg.APIKey,
+		LLMModel:  msg.LLMModel,
 	})
 	if err != nil {
 		return m.cmdError(fmt.Errorf("config.Save: %w", err))

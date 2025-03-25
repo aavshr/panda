@@ -11,7 +11,7 @@ import (
 const (
 	appConfigDir   = "aavshr-panda" // to not have name conflicts with other apps
 	configFileName = "config.json"
-	defaultModel   = "gpt-4o-mini"
+	defaultModel   = "o3-mini"
 )
 
 var (

@@ -7,12 +7,22 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+type SettingsMode int
+
+const (
+	SettingsModeAPIKey SettingsMode = iota
+	SettingsModeLLMModel
+)
+
 type SettingsSubmitMsg struct {
-	APIKey string
+	APIKey   string
+	LLMModel string
 }
 
 type SettingsModel struct {
 	inner textinput.Model
+	mode  SettingsMode
+	msg   SettingsSubmitMsg
 }
 
 func SettingsSubmitCmd(msg SettingsSubmitMsg) tea.Cmd {
@@ -24,7 +34,10 @@ func SettingsSubmitCmd(msg SettingsSubmitMsg) tea.Cmd {
 func NewSettingsModel() SettingsModel {
 	inner := textinput.New()
 	inner.Placeholder = "Enter your API key..."
-	return SettingsModel{inner: inner}
+	return SettingsModel{
+		inner: inner,
+		mode:  SettingsModeAPIKey,
+	}
 }
 
 func (m *SettingsModel) Focus() tea.Cmd {
@@ -49,7 +62,16 @@ func (m *SettingsModel) Update(msg interface{}) (SettingsModel, tea.Cmd) {
 		case tea.KeyEnter:
 			value := strings.TrimSpace(m.inner.Value())
 			if value != "" {
-				return *m, SettingsSubmitCmd(SettingsSubmitMsg{APIKey: m.inner.Value()})
+				if m.mode == SettingsModeAPIKey {
+					m.mode = SettingsModeLLMModel
+					m.inner.Placeholder = "Enter your LLM model (default o3-mini)..."
+					m.msg.APIKey = value
+					m.inner.SetValue("")
+					m.View()
+				} else {
+					m.msg.LLMModel = value
+					return *m, SettingsSubmitCmd(m.msg)
+				}
 			}
 		case tea.KeyEscape, tea.KeyCtrlC, tea.KeyCtrlD:
 			return *m, tea.Quit

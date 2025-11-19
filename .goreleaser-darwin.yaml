@@ -27,7 +27,7 @@ builds:
 
 archives:
   - id: panda-archive
-    format: tar.gz
+    formats: zip
     name_template: >-
       {{ .ProjectName }}_
       {{- .Version }}_

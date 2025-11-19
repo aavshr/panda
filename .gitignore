@@ -2,3 +2,4 @@
 panda
 !.gitignore
 !.github
+!.goreleaser*

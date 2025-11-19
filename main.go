@@ -2,6 +2,7 @@ package main
 
 import (
 	_ "embed"
+	"fmt"
 	"log"
 	"os"
 
@@ -14,6 +15,13 @@ import (
 	"github.com/aavshr/panda/internal/ui/store"
 	tea "github.com/charmbracelet/bubbletea"
 	"golang.org/x/term"
+)
+
+// build information injected by goreleaser
+var (
+	version = "dev"
+	commit  = "none"
+	date    = "unknown"
 )
 
 //go:embed internal/db/schema/init.sql
@@ -76,6 +84,11 @@ func initMockStore() *store.Mock {
 }
 
 func main() {
+	if len(os.Args) > 1 && (os.Args[1] == "--version" || os.Args[1] == "-v") {
+		fmt.Printf("panda %s\ncommit: %s\nbuilt at: %s\n", version, commit, date)
+		os.Exit(0)
+	}
+
 	isDev := strings.ToLower(os.Getenv("PANDA_ENV")) == "dev"
 	dataDirPath := config.GetDataDir()
 	databaseName := DefaultDatabaseName
